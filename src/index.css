@@ -278,22 +278,43 @@ body {
 }
 
 /* Download Button */
-.download-btn {
+.action-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: #4a86e8;
-  color: white;
-  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
   text-decoration: none;
-  font-size: 0.75rem;
-  transition: background 0.2s;
+  transition: opacity 0.2s;
 }
 
-.download-btn:hover {
-  background: #3a76d8;
+.icon-btn:hover {
+  opacity: 0.7;
+}
+
+.download-icon {
+  background: #4a86e8;
+  color: white;
+}
+
+.sheets-icon {
+  background: #e8f5e9;
+}
+
+/* Warehouse Cell - stacked */
+.warehouse-cell {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.warehouse-cell div {
+  white-space: nowrap;
 }
 
 /* Status Dropdown */

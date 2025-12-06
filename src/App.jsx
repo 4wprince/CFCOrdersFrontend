@@ -319,17 +319,36 @@ function App() {
                     </span>
                     {order.is_trusted_customer && <span className="trusted-badge">TRUSTED</span>}
                   </td>
-                  <td>
+                  <td className="action-btns">
                     <a 
                       href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
-                      className="download-btn"
-                      title="Download Order Excel"
+                      className="icon-btn download-icon"
+                      title="Download Excel"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      ⬇
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                    </a>
+                    <a 
+                      href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="icon-btn sheets-icon"
+                      title="Open in Google Sheets"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#0F9D58">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                        <rect x="8" y="9" width="8" height="2" fill="white"/>
+                        <rect x="8" y="13" width="8" height="2" fill="white"/>
+                        <rect x="8" y="17" width="5" height="2" fill="white"/>
+                      </svg>
                     </a>
                   </td>
-                  <td>{order.customer_name || order.company_name}</td>
+                  <td>{order.company_name || order.customer_name}</td>
                   <td className="money hide-mobile">{formatMoney(order.order_total)}</td>
                   <td className="money hide-mobile">{formatMoney(order.shipping_cost)}</td>
                   <td className="money hide-mobile">{formatMoney(order.payment_amount)}</td>
@@ -360,7 +379,12 @@ function App() {
                       ))}
                     </select>
                   </td>
-                  <td className="hide-mobile">{order.warehouse_1}</td>
+                  <td className="hide-mobile warehouse-cell">
+                    {order.warehouse_1 && <div>{order.warehouse_1}</div>}
+                    {order.warehouse_2 && <div>{order.warehouse_2}</div>}
+                    {order.warehouse_3 && <div>{order.warehouse_3}</div>}
+                    {order.warehouse_4 && <div>{order.warehouse_4}</div>}
+                  </td>
                   <td className="hide-mobile">{order.tracking || order.pro_number || ''}</td>
                   <td className="hide-mobile">{order.phone}</td>
                 </tr>
@@ -464,6 +488,14 @@ function App() {
                   <div className="detail-item">
                     <label>Warehouse 2</label>
                     <div className="value">{selectedOrder.warehouse_2 || '-'}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Warehouse 3</label>
+                    <div className="value">{selectedOrder.warehouse_3 || '-'}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Warehouse 4</label>
+                    <div className="value">{selectedOrder.warehouse_4 || '-'}</div>
                   </div>
                   <div className="detail-item">
                     <label>RL Quote #</label>
