@@ -230,6 +230,14 @@ function App() {
       {/* Stats Bar */}
       <div className="stats-bar">
         <div
+          className={`stat-card ${statusFilter === null ? 'active' : ''}`}
+          style={{background: '#e0e0e0'}}
+          onClick={() => setStatusFilter(null)}
+        >
+          <div className="count">{orders.length}</div>
+          <div className="label">All</div>
+        </div>
+        <div
           className={`stat-card status-needs-invoice ${statusFilter === 'needs_payment_link' ? 'active' : ''}`}
           onClick={() => setStatusFilter(statusFilter === 'needs_payment_link' ? null : 'needs_payment_link')}
         >
