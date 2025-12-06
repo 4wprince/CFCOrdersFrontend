@@ -277,6 +277,25 @@ body {
   text-decoration: underline;
 }
 
+/* Download Button */
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #4a86e8;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: background 0.2s;
+}
+
+.download-btn:hover {
+  background: #3a76d8;
+}
+
 /* Status Dropdown */
 .status-select {
   padding: 0.375rem 0.5rem;

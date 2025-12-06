@@ -298,6 +298,7 @@ function App() {
               <tr>
                 <th>Date</th>
                 <th>Order ID</th>
+                <th></th>
                 <th>Customer</th>
                 <th className="hide-mobile">Amount</th>
                 <th className="hide-mobile">Shipping</th>
@@ -317,6 +318,16 @@ function App() {
                       {order.order_id}
                     </span>
                     {order.is_trusted_customer && <span className="trusted-badge">TRUSTED</span>}
+                  </td>
+                  <td>
+                    <a 
+                      href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
+                      className="download-btn"
+                      title="Download Order Excel"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      ⬇
+                    </a>
                   </td>
                   <td>{order.customer_name || order.company_name}</td>
                   <td className="money hide-mobile">{formatMoney(order.order_total)}</td>
@@ -423,6 +434,10 @@ function App() {
                   <div className="detail-item">
                     <label>Street</label>
                     <div className="value">{selectedOrder.street || '-'}</div>
+                  </div>
+                  <div className="detail-item">
+                    <label>Suite/Unit</label>
+                    <div className="value">{selectedOrder.street2 || '-'}</div>
                   </div>
                   <div className="detail-item">
                     <label>City</label>
