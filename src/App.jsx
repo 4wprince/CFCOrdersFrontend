@@ -38,7 +38,6 @@ function App() {
   const [activeTab, setActiveTab] = useState('orders')
   const [aiSummary, setAiSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
   
   // Check if already logged in
   useEffect(() => {
@@ -51,10 +50,10 @@ function App() {
   // Load data when logged in
   useEffect(() => {
     if (isLoggedIn) {
-      loadOrders(showArchived)
+      loadOrders()
       loadAlerts()
     }
-  }, [isLoggedIn, showArchived])
+  }, [isLoggedIn])
   
   const handleLogin = (e) => {
     e.preventDefault()
@@ -72,10 +71,10 @@ function App() {
     localStorage.removeItem('cfc_logged_in')
   }
   
-  const loadOrders = async (includeComplete = false) => {
+  const loadOrders = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/orders?limit=200&include_complete=${includeComplete}`)
+      const res = await fetch(`${API_URL}/orders?limit=200`)
       const data = await res.json()
       if (data.orders) {
         setOrders(data.orders)
@@ -300,23 +299,10 @@ function App() {
           <div className="count">{statusCounts['awaiting_shipment'] || 0}</div>
           <div className="label">Ready Ship</div>
         </div>
-        <div
-          className={`stat-card ${showArchived ? 'active' : ''}`}
-          style={{background: showArchived ? '#a5d6a7' : '#c8e6c9'}}
-          onClick={() => setShowArchived(!showArchived)}
-        >
-          <div className="count">📦</div>
-          <div className="label">{showArchived ? 'Show Active' : 'Archived'}</div>
-        </div>
       </div>
       
       {/* Orders Table */}
       <div className="table-container">
-        {showArchived && (
-          <div className="archived-banner">
-            Showing Completed/Archived Orders
-          </div>
-        )}
         {loading ? (
           <div className="loading">
             <div className="spinner"></div>
