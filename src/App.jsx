@@ -332,21 +332,6 @@ function App() {
                         <line x1="12" y1="15" x2="12" y2="3"/>
                       </svg>
                     </a>
-                    <a 
-                      href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="icon-btn sheets-icon"
-                      title="Open in Google Sheets"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#0F9D58">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                        <rect x="8" y="9" width="8" height="2" fill="white"/>
-                        <rect x="8" y="13" width="8" height="2" fill="white"/>
-                        <rect x="8" y="17" width="5" height="2" fill="white"/>
-                      </svg>
-                    </a>
                   </td>
                   <td>{order.company_name || order.customer_name}</td>
                   <td className="money hide-mobile">{formatMoney(order.order_total)}</td>
