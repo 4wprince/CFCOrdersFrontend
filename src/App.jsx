@@ -36,6 +36,8 @@ function App() {
   const [showAlerts, setShowAlerts] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [activeTab, setActiveTab] = useState('orders')
+  const [aiSummary, setAiSummary] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
   
   // Check if already logged in
   useEffect(() => {
@@ -119,6 +121,24 @@ function App() {
     } catch (err) {
       console.error('Failed to update order:', err)
     }
+  }
+  
+  const loadAiSummary = async (orderId, force = false) => {
+    setSummaryLoading(true)
+    setAiSummary(null)
+    try {
+      const res = await fetch(`${API_URL}/orders/${orderId}/generate-summary?force=${force}`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (data.summary) {
+        setAiSummary(data.summary)
+      }
+    } catch (err) {
+      console.error('Failed to load AI summary:', err)
+      setAiSummary('Failed to generate summary')
+    }
+    setSummaryLoading(false)
   }
   
   const resolveAlert = async (alertId) => {
@@ -314,7 +334,7 @@ function App() {
                 <tr key={order.order_id} className={`row-${getStatusClass(order.current_status)}`}>
                   <td>{formatDate(order.order_date)}</td>
                   <td>
-                    <span className="order-id" onClick={() => setSelectedOrder(order)}>
+                    <span className="order-id" onClick={() => { setSelectedOrder(order); setAiSummary(null); loadAiSummary(order.order_id); }}>
                       {order.order_id}
                     </span>
                     {/* Trusted badge removed per user request */}
@@ -512,6 +532,29 @@ function App() {
                     <label>Tracking</label>
                     <div className="value">{selectedOrder.tracking || '-'}</div>
                   </div>
+                </div>
+              </div>
+              
+              <div className="detail-section ai-summary-section">
+                <h3>
+                  AI Summary 
+                  <button 
+                    className="refresh-btn"
+                    onClick={() => loadAiSummary(selectedOrder.order_id, true)}
+                    disabled={summaryLoading}
+                    title="Refresh Summary"
+                  >
+                    🔄
+                  </button>
+                </h3>
+                <div className="detail-item">
+                  {summaryLoading ? (
+                    <div className="summary-loading">Generating summary...</div>
+                  ) : aiSummary ? (
+                    <div className="value ai-summary" style={{whiteSpace: 'pre-wrap'}}>{aiSummary}</div>
+                  ) : (
+                    <div className="value">No summary available</div>
+                  )}
                 </div>
               </div>
               
