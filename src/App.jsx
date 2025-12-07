@@ -171,6 +171,18 @@ function App() {
     return STATUS_MAP[status]?.label || status
   }
   
+  const getShipmentStatusClass = (status) => {
+    const map = {
+      'needs_order': 'needs-order',
+      'at_warehouse': 'at-warehouse',
+      'needs_bol': 'needs-bol',
+      'ready_ship': 'ready-ship',
+      'shipped': 'ready-ship',
+      'delivered': 'complete'
+    }
+    return map[status] || ''
+  }
+  
   // Count by status
   const statusCounts = orders.reduce((acc, order) => {
     const status = order.current_status
@@ -343,91 +355,160 @@ function App() {
                 <th></th>
                 <th>Customer</th>
                 <th className="hide-mobile">Amount</th>
-                <th className="hide-mobile">Shipping</th>
                 <th className="hide-mobile">Paid</th>
-                <th>Status</th>
-                <th className="hide-mobile">Warehouse</th>
+                <th>Shipment</th>
+                <th>Ship Status</th>
+                <th className="hide-mobile">Method</th>
                 <th className="hide-mobile">Tracking</th>
                 <th className="hide-mobile">Phone</th>
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map(order => (
-                <tr key={order.order_id} className={`row-${getStatusClass(order.current_status)}`}>
-                  <td>{formatDate(order.order_date)}</td>
-                  <td>
-                    <span className="order-id" onClick={() => { setSelectedOrder(order); setAiSummary(null); loadAiSummary(order.order_id); }}>
-                      {order.order_id}
-                    </span>
-                    {/* Trusted badge removed per user request */}
-                  </td>
-                  <td className="action-btns">
-                    <a 
-                      href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
-                      className="icon-btn download-icon"
-                      title="Download Excel"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                    </a>
-                    <a 
-                      href={`https://script.google.com/macros/s/AKfycbzd5BMSeaizOeINTzw70qVzq768S7FMZeZ87NgSOYzc8h6wA4k089srS416Lz66cY7TWQ/exec?orderId=${order.order_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="icon-btn sheets-icon"
-                      title="Create Supplier Sheet"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24">
-                        <rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/>
-                        <rect x="6" y="7" width="5" height="3" fill="white"/>
-                        <rect x="13" y="7" width="5" height="3" fill="white"/>
-                        <rect x="6" y="11" width="5" height="3" fill="white"/>
-                        <rect x="13" y="11" width="5" height="3" fill="white"/>
-                        <rect x="6" y="15" width="5" height="3" fill="white"/>
-                        <rect x="13" y="15" width="5" height="3" fill="white"/>
-                      </svg>
-                    </a>
-                  </td>
-                  <td>{order.company_name || order.customer_name}</td>
-                  <td className="money hide-mobile">{formatMoney(order.order_total)}</td>
-                  <td className="money hide-mobile">{formatMoney(order.shipping_cost)}</td>
-                  <td className="money hide-mobile">{formatMoney(order.payment_amount)}</td>
-                  <td>
-                    <select
-                      className="status-select"
-                      value={order.current_status}
-                      onChange={async (e) => {
-                        const newStatus = e.target.value
-                        try {
-                          await fetch(`${API_URL}/orders/${order.order_id}/set-status?status=${newStatus}&source=web_ui`, {
-                            method: 'PATCH'
-                          })
-                          loadOrders()
-                        } catch (err) {
-                          console.error('Failed to update status:', err)
-                        }
-                      }}
-                    >
-                      {STATUS_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="hide-mobile warehouse-cell">
-                    {order.warehouse_1 && <div>{order.warehouse_1}</div>}
-                    {order.warehouse_2 && <div>{order.warehouse_2}</div>}
-                    {order.warehouse_3 && <div>{order.warehouse_3}</div>}
-                    {order.warehouse_4 && <div>{order.warehouse_4}</div>}
-                  </td>
-                  <td className="hide-mobile">{order.tracking || order.pro_number || ''}</td>
-                  <td className="hide-mobile">{order.phone}</td>
-                </tr>
-              ))}
+              {filteredOrders.map(order => {
+                const shipments = order.shipments || []
+                const hasMultipleShipments = shipments.length > 1
+                
+                // If no shipments yet, show single row with order info
+                if (shipments.length === 0) {
+                  return (
+                    <tr key={order.order_id} className={`row-${getStatusClass(order.current_status)}`}>
+                      <td>{formatDate(order.order_date)}</td>
+                      <td>
+                        <span className="order-id" onClick={() => { setSelectedOrder(order); setAiSummary(null); loadAiSummary(order.order_id); }}>
+                          {order.order_id}
+                        </span>
+                      </td>
+                      <td className="action-btns">
+                        <a href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
+                          className="icon-btn download-icon" title="Download Excel"
+                          onClick={(e) => e.stopPropagation()}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                        </a>
+                        <a href={`https://script.google.com/macros/s/AKfycbzd5BMSeaizOeINTzw70qVzq768S7FMZeZ87NgSOYzc8h6wA4k089srS416Lz66cY7TWQ/exec?orderId=${order.order_id}`}
+                          target="_blank" rel="noopener noreferrer" className="icon-btn sheets-icon" title="Create Supplier Sheet"
+                          onClick={(e) => e.stopPropagation()}>
+                          <svg width="14" height="14" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/>
+                            <rect x="6" y="7" width="5" height="3" fill="white"/><rect x="13" y="7" width="5" height="3" fill="white"/>
+                            <rect x="6" y="11" width="5" height="3" fill="white"/><rect x="13" y="11" width="5" height="3" fill="white"/>
+                            <rect x="6" y="15" width="5" height="3" fill="white"/><rect x="13" y="15" width="5" height="3" fill="white"/>
+                          </svg>
+                        </a>
+                      </td>
+                      <td>{order.company_name || order.customer_name}</td>
+                      <td className="money hide-mobile">{formatMoney(order.order_total)}</td>
+                      <td className="money hide-mobile">{formatMoney(order.payment_amount)}</td>
+                      <td><span className="no-shipments">No shipments</span></td>
+                      <td>
+                        <select className="status-select" value={order.current_status}
+                          onChange={async (e) => {
+                            try {
+                              await fetch(`${API_URL}/orders/${order.order_id}/set-status?status=${e.target.value}&source=web_ui`, { method: 'PATCH' })
+                              loadOrders()
+                            } catch (err) { console.error('Failed:', err) }
+                          }}>
+                          {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                        </select>
+                      </td>
+                      <td className="hide-mobile">-</td>
+                      <td className="hide-mobile">-</td>
+                      <td className="hide-mobile">{order.phone}</td>
+                    </tr>
+                  )
+                }
+                
+                // Show each shipment as a row
+                return shipments.map((ship, idx) => (
+                  <tr key={ship.shipment_id} className={`row-${getShipmentStatusClass(ship.status)} ${hasMultipleShipments ? 'multi-shipment' : ''}`}>
+                    {idx === 0 ? (
+                      <>
+                        <td rowSpan={shipments.length}>{formatDate(order.order_date)}</td>
+                        <td rowSpan={shipments.length}>
+                          <span className="order-id" onClick={() => { setSelectedOrder(order); setAiSummary(null); loadAiSummary(order.order_id); }}>
+                            {order.order_id}
+                          </span>
+                        </td>
+                        <td rowSpan={shipments.length} className="action-btns">
+                          <a href={`https://www.cabinetsforcontractors.net/orders/${order.order_id}/export_single.xlsx`}
+                            className="icon-btn download-icon" title="Download Excel" onClick={(e) => e.stopPropagation()}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          </a>
+                          <a href={`https://script.google.com/macros/s/AKfycbzd5BMSeaizOeINTzw70qVzq768S7FMZeZ87NgSOYzc8h6wA4k089srS416Lz66cY7TWQ/exec?orderId=${order.order_id}`}
+                            target="_blank" rel="noopener noreferrer" className="icon-btn sheets-icon" title="Create Supplier Sheet" onClick={(e) => e.stopPropagation()}>
+                            <svg width="14" height="14" viewBox="0 0 24 24">
+                              <rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/>
+                              <rect x="6" y="7" width="5" height="3" fill="white"/><rect x="13" y="7" width="5" height="3" fill="white"/>
+                              <rect x="6" y="11" width="5" height="3" fill="white"/><rect x="13" y="11" width="5" height="3" fill="white"/>
+                              <rect x="6" y="15" width="5" height="3" fill="white"/><rect x="13" y="15" width="5" height="3" fill="white"/>
+                            </svg>
+                          </a>
+                        </td>
+                        <td rowSpan={shipments.length}>{order.company_name || order.customer_name}</td>
+                        <td rowSpan={shipments.length} className="money hide-mobile">{formatMoney(order.order_total)}</td>
+                        <td rowSpan={shipments.length} className="money hide-mobile">{formatMoney(order.payment_amount)}</td>
+                      </>
+                    ) : null}
+                    <td className="shipment-warehouse">{ship.warehouse}</td>
+                    <td>
+                      <select className="status-select shipment-status" value={ship.status}
+                        onChange={async (e) => {
+                          try {
+                            await fetch(`${API_URL}/shipments/${ship.shipment_id}?status=${e.target.value}`, { method: 'PATCH' })
+                            loadOrders()
+                          } catch (err) { console.error('Failed:', err) }
+                        }}>
+                        <option value="needs_order">Needs Order</option>
+                        <option value="at_warehouse">At Warehouse</option>
+                        <option value="needs_bol">Needs BOL</option>
+                        <option value="ready_ship">Ready Ship</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                      </select>
+                    </td>
+                    <td className="hide-mobile">
+                      <select className="method-select" value={ship.ship_method || ''}
+                        onChange={async (e) => {
+                          try {
+                            await fetch(`${API_URL}/shipments/${ship.shipment_id}?ship_method=${e.target.value || ''}`, { method: 'PATCH' })
+                            loadOrders()
+                          } catch (err) { console.error('Failed:', err) }
+                        }}>
+                        <option value="">-</option>
+                        <option value="LTL">LTL</option>
+                        <option value="Pirateship">Pirateship</option>
+                        <option value="Pickup">Pickup</option>
+                        <option value="BoxTruck">Box Truck</option>
+                        <option value="LiDelivery">Li Delivery</option>
+                      </select>
+                    </td>
+                    <td className="hide-mobile">
+                      <input type="text" className="tracking-input" value={ship.tracking || ship.pro_number || ''}
+                        placeholder="Tracking/PRO"
+                        onBlur={async (e) => {
+                          const val = e.target.value
+                          if (val !== (ship.tracking || ship.pro_number || '')) {
+                            try {
+                              await fetch(`${API_URL}/shipments/${ship.shipment_id}?tracking=${encodeURIComponent(val)}`, { method: 'PATCH' })
+                              loadOrders()
+                            } catch (err) { console.error('Failed:', err) }
+                          }
+                        }}
+                        onChange={(e) => {
+                          // Update local state for immediate feedback
+                          ship.tracking = e.target.value
+                        }}
+                      />
+                    </td>
+                    {idx === 0 ? <td rowSpan={shipments.length} className="hide-mobile">{order.phone}</td> : null}
+                  </tr>
+                ))
+              })}
             </tbody>
           </table>
         )}
