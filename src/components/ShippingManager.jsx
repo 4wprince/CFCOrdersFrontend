@@ -1,13 +1,7 @@
 /**
  * ShippingManager.jsx
  * Central hub for shipping method selection and routing
- * 
- * Methods:
- * - LTL: Opens RLQuoteHelper
- * - Pirateship: Opens PirateshipHelper (address copy + label)
- * - Pickup: Customer picks up, no shipping needed
- * - BoxTruck: Manual tracking entry
- * - LiDelivery: Li handles delivery
+ * v5.8.3 - Bypass method selection if already set, Li delivery pricing, Pirateship popup
  */
 
 import { useState, useEffect } from 'react'
@@ -15,12 +9,6 @@ import RLQuoteHelper from './RLQuoteHelper'
 import { CustomerAddress } from './CustomerAddress'
 
 const API_URL = 'https://cfc-backend-b83s.onrender.com'
-
-// Shipping methods that need helpers
-const METHODS_WITH_HELPER = ['LTL', 'Pirateship']
-
-// Shipping methods that skip helpers
-const METHODS_NO_HELPER = ['Pickup', 'BoxTruck', 'LiDelivery']
 
 const ShippingManager = ({ 
   shipment, 
@@ -32,7 +20,21 @@ const ShippingManager = ({
   const [method, setMethod] = useState(shipment?.ship_method || '')
   const [rlData, setRlData] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [view, setView] = useState('select') // 'select', 'rl', 'pirateship', 'tracking'
+  
+  // Determine initial view based on existing method
+  const getInitialView = () => {
+    if (!shipment?.ship_method) return 'select'
+    if (shipment.ship_method === 'LTL') return 'rl'
+    if (shipment.ship_method === 'Pirateship') return 'pirateship'
+    if (shipment.ship_method === 'LiDelivery') return 'lidelivery'
+    return 'tracking'
+  }
+  
+  const [view, setView] = useState(getInitialView())
+  
+  // Li Delivery pricing
+  const [liCost, setLiCost] = useState(shipment?.li_quote_price || '200')
+  const [liCharge, setLiCharge] = useState(shipment?.li_customer_price || '250')
   
   // Load RL data when LTL is selected
   useEffect(() => {
@@ -40,6 +42,14 @@ const ShippingManager = ({
       loadRLData()
     }
   }, [method, view])
+  
+  // Auto-load if method already set
+  useEffect(() => {
+    if (shipment?.ship_method === 'LTL') {
+      setMethod('LTL')
+      loadRLData()
+    }
+  }, [shipment])
   
   const loadRLData = async () => {
     setLoading(true)
@@ -75,6 +85,8 @@ const ShippingManager = ({
       setView('rl')
     } else if (newMethod === 'Pirateship') {
       setView('pirateship')
+    } else if (newMethod === 'LiDelivery') {
+      setView('lidelivery')
     } else {
       setView('tracking')
     }
@@ -85,8 +97,36 @@ const ShippingManager = ({
     onClose()
   }
   
+  const saveLiPricing = async () => {
+    try {
+      const params = new URLSearchParams()
+      params.append('li_quote_price', liCost)
+      params.append('li_customer_price', liCharge)
+      
+      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, {
+        method: 'PATCH'
+      })
+      
+      if (onUpdate) onUpdate()
+      onClose()
+    } catch (err) {
+      console.error('Failed to save Li pricing:', err)
+    }
+  }
+  
+  const openPirateship = () => {
+    const w = 800
+    const h = window.screen.height
+    const left = window.screen.width - w
+    window.open(
+      'https://ship.pirateship.com/ship',
+      'Pirateship',
+      `width=${w},height=${h},left=${left},top=0,resizable=yes,scrollbars=yes`
+    )
+  }
+  
   // Method selection view
-  if (view === 'select' || !method) {
+  if (view === 'select') {
     return (
       <div className="shipping-manager">
         <h3>Select Shipping Method</h3>
@@ -192,33 +232,69 @@ const ShippingManager = ({
           />
           
           <div className="pirateship-actions">
-            <a 
-              href="https://ship.pirateship.com/ship" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="btn btn-primary"
-            >
+            <button className="btn btn-primary" onClick={openPirateship}>
               Open Pirateship →
-            </a>
-          </div>
-          
-          <div className="tracking-entry">
-            <h4>Enter Tracking</h4>
-            <input 
-              type="text" 
-              placeholder="Tracking number..."
-              defaultValue={shipment.tracking_number || ''}
-            />
-            <button className="btn btn-success" onClick={handleSave}>
-              Save & Close
             </button>
           </div>
+          
+          <button className="btn btn-success" onClick={handleSave}>
+            Done
+          </button>
         </div>
       </div>
     )
   }
   
-  // Simple tracking view (Pickup, BoxTruck, LiDelivery)
+  // Li Delivery view - needs quote pricing
+  if (view === 'lidelivery') {
+    return (
+      <div className="shipping-manager">
+        <div className="manager-header">
+          <button className="btn btn-back" onClick={() => setView('select')}>← Change Method</button>
+          <span className="current-method">Li Delivery</span>
+        </div>
+        
+        <div className="li-delivery-helper">
+          <h3>Li Delivery Pricing</h3>
+          <p className="method-info">Li handles delivery. Enter quote for cost tracking.</p>
+          
+          <div className="input-grid">
+            <div className="input-group">
+              <label>Li Cost ($):</label>
+              <input 
+                type="number"
+                step="0.01"
+                value={liCost}
+                onChange={(e) => setLiCost(e.target.value)}
+                placeholder="200.00"
+              />
+            </div>
+            
+            <div className="input-group">
+              <label>Customer Charge ($):</label>
+              <input 
+                type="number"
+                step="0.01"
+                value={liCharge}
+                onChange={(e) => setLiCharge(e.target.value)}
+                placeholder="250.00"
+              />
+            </div>
+          </div>
+          
+          <p className="profit-note">
+            Profit: ${(parseFloat(liCharge || 0) - parseFloat(liCost || 0)).toFixed(2)}
+          </p>
+          
+          <button className="btn btn-success" onClick={saveLiPricing}>
+            Save Pricing
+          </button>
+        </div>
+      </div>
+    )
+  }
+  
+  // Simple tracking view (Pickup, BoxTruck)
   if (view === 'tracking') {
     return (
       <div className="shipping-manager">
@@ -233,18 +309,7 @@ const ShippingManager = ({
           )}
           
           {method === 'BoxTruck' && (
-            <>
-              <p className="method-info">Enter tracking/reference number when shipped.</p>
-              <input 
-                type="text" 
-                placeholder="Tracking/Reference..."
-                defaultValue={shipment.tracking_number || ''}
-              />
-            </>
-          )}
-          
-          {method === 'LiDelivery' && (
-            <p className="method-info">Li handles delivery. No action needed.</p>
+            <p className="method-info">Enter tracking/reference number when shipped.</p>
           )}
           
           <button className="btn btn-success" onClick={handleSave}>
