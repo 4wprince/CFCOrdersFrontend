@@ -704,17 +704,29 @@ function App() {
                   <span className="rl-value">{rlQuoteModal.data.warehouse} - <strong>{rlQuoteModal.data.origin_zip}</strong></span>
                 </div>
                 <div className="rl-quote-row">
+                  <label>Origin ZIP:</label>
+                  <span className="rl-value">
+                    <strong>{rlQuoteModal.data.origin_zip}</strong>
+                    <button className="copy-btn" onClick={() => {navigator.clipboard.writeText(rlQuoteModal.data.origin_zip); }}>📋</button>
+                  </span>
+                </div>
+                <div className="rl-quote-row">
                   <label>Destination:</label>
                   <span className="rl-value">
-                    {rlQuoteModal.data.destination.name}<br/>
-                    {rlQuoteModal.data.destination.city}, {rlQuoteModal.data.destination.state} - <strong>{rlQuoteModal.data.destination.zip}</strong>
+                    {rlQuoteModal.data.destination.name}, {rlQuoteModal.data.destination.city}, {rlQuoteModal.data.destination.state}
+                    <br/><strong>{rlQuoteModal.data.destination.zip}</strong>
+                    <button className="copy-btn" onClick={() => {navigator.clipboard.writeText(rlQuoteModal.data.destination.zip); }}>📋</button>
                   </span>
                 </div>
                 <div className="rl-quote-row">
                   <label>Weight:</label>
                   <span className="rl-value">
                     {rlQuoteModal.data.weight.value ? (
-                      <><strong>{rlQuoteModal.data.weight.value} lbs</strong> ({rlQuoteModal.data.weight.note})</>
+                      <>
+                        <strong>{rlQuoteModal.data.weight.value} lbs</strong>
+                        <button className="copy-btn" onClick={() => {navigator.clipboard.writeText(String(rlQuoteModal.data.weight.value)); }}>📋</button>
+                        <span className="rl-note">({rlQuoteModal.data.weight.note})</span>
+                      </>
                     ) : (
                       <span className="rl-warning">⚠️ {rlQuoteModal.data.weight.note || 'Enter weight manually on RL site'}</span>
                     )}
@@ -741,26 +753,15 @@ function App() {
               
               <div className="rl-quote-actions">
                 <button 
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    const d = rlQuoteModal.data
-                    const text = `Origin: ${d.origin_zip}\nDestination: ${d.destination.zip}\nWeight: ${d.weight.value || 'TBD'} lbs\nClass: 85`
-                    navigator.clipboard.writeText(text)
-                    alert('Copied to clipboard!')
-                  }}
-                >
-                  📋 Copy Data
-                </button>
-                <button 
                   className="btn btn-primary"
                   onClick={() => {
-                    // Open RL in right half of screen
+                    // Open RL in right half of screen - keep it persistent
                     const w = window.screen.width / 2
                     const h = window.screen.height
                     window.open(
                       rlQuoteModal.data.rl_quote_url,
                       'RLQuote',
-                      `width=${w},height=${h},left=${w},top=0`
+                      `width=${w},height=${h},left=${w},top=0,resizable=yes,scrollbars=yes`
                     )
                   }}
                 >
@@ -814,6 +815,45 @@ function App() {
                 >
                   Save Quote
                 </button>
+              </div>
+              
+              <div className="rl-bol-helper">
+                <h4>BOL Helper (copy for RL form):</h4>
+                
+                <div className="rl-bol-row">
+                  <label>Bill To (Section 3):</label>
+                  <button className="btn btn-secondary" onClick={() => {
+                    navigator.clipboard.writeText('Cabinets For Contactors-Cust Number C00VP1')
+                  }}>📋 Company Name</button>
+                  <button className="btn btn-secondary" onClick={() => {
+                    navigator.clipboard.writeText('185 Stevenson Point')
+                  }}>📋 Address</button>
+                  <button className="btn btn-secondary" onClick={() => {
+                    navigator.clipboard.writeText('30132')
+                  }}>📋 ZIP</button>
+                </div>
+                
+                <div className="rl-bol-row">
+                  <label>Email Notifications:</label>
+                  <button className="btn btn-secondary" onClick={() => {
+                    const custEmail = rlQuoteModal.data.destination.email || ''
+                    const combo = custEmail ? `${custEmail}, cabinetsforcontractors@gmail.com` : 'cabinetsforcontractors@gmail.com'
+                    navigator.clipboard.writeText(combo)
+                  }}>📋 Copy Emails</button>
+                  <span className="rl-note">{rlQuoteModal.data.destination.email || 'No customer email'} + your email</span>
+                </div>
+                
+                <div className="rl-bol-row">
+                  <label>Customer Address:</label>
+                  <button className="btn btn-secondary" onClick={() => {
+                    const d = rlQuoteModal.data.destination
+                    navigator.clipboard.writeText(d.street || '')
+                  }}>📋 Street</button>
+                  <button className="btn btn-secondary" onClick={() => {
+                    const d = rlQuoteModal.data.destination
+                    navigator.clipboard.writeText(`${d.city}, ${d.state}`)
+                  }}>📋 City/State</button>
+                </div>
               </div>
             </div>
           </div>

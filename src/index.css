@@ -823,6 +823,26 @@ body {
   color: #1a73e8;
 }
 
+.copy-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.copy-btn:hover {
+  background: #f0f0f0;
+}
+
+.rl-note {
+  color: #666;
+  font-size: 0.875rem;
+  margin-left: 8px;
+}
+
 .rl-warning {
   color: #f57c00;
   font-weight: 500;
@@ -928,4 +948,37 @@ body {
 
 .btn-success:hover {
   background: #1b5e20;
+}
+
+/* BOL Helper Section */
+.rl-bol-helper {
+  background: #fff8e1;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  border: 1px solid #ffcc80;
+}
+
+.rl-bol-helper h4 {
+  margin-bottom: 1rem;
+  color: #e65100;
+}
+
+.rl-bol-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rl-bol-row label {
+  font-weight: 600;
+  min-width: 140px;
+  font-size: 0.875rem;
+}
+
+.rl-bol-row .btn-secondary {
+  padding: 4px 8px;
+  font-size: 0.75rem;
 }
