@@ -107,14 +107,17 @@ function App() {
   
   // === FILTERING ===
   
-  const getFilteredOrders = () => {
+const getFilteredOrders = () => {
     let filtered = orders
     
     // Filter by status
     if (statusFilter) {
       filtered = filtered.filter(o => o.current_status === statusFilter)
-    } else if (!showArchived) {
-      // Hide complete orders unless showing archived
+    } else if (showArchived) {
+      // Show ONLY complete/archived orders
+      filtered = filtered.filter(o => o.current_status === 'complete')
+    } else {
+      // Hide complete orders (show active only)
       filtered = filtered.filter(o => o.current_status !== 'complete')
     }
     
