@@ -843,6 +843,9 @@ body {
 .rl-quote-actions {
   margin-bottom: 1.5rem;
   text-align: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
 }
 
 .rl-quote-entry {
@@ -906,6 +909,16 @@ body {
 
 .btn-primary:hover {
   background: #1557b0;
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ccc;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
 }
 
 .btn-success {

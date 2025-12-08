@@ -713,15 +713,10 @@ function App() {
                 <div className="rl-quote-row">
                   <label>Weight:</label>
                   <span className="rl-value">
-                    {rlQuoteModal.data.weight.calculated ? (
-                      <>{rlQuoteModal.data.weight.calculated} lbs (calculated)</>
-                    ) : rlQuoteModal.data.weight.shipment_weight ? (
-                      <>{rlQuoteModal.data.weight.shipment_weight} lbs</>
+                    {rlQuoteModal.data.weight.value ? (
+                      <><strong>{rlQuoteModal.data.weight.value} lbs</strong> ({rlQuoteModal.data.weight.note})</>
                     ) : (
-                      <span className="rl-warning">⚠️ Enter weight manually on RL site</span>
-                    )}
-                    {rlQuoteModal.data.weight.needs_manual_entry && (
-                      <span className="rl-warning"> (Multi-warehouse - verify weight)</span>
+                      <span className="rl-warning">⚠️ {rlQuoteModal.data.weight.note || 'Enter weight manually on RL site'}</span>
                     )}
                   </span>
                 </div>
@@ -745,6 +740,17 @@ function App() {
               </div>
               
               <div className="rl-quote-actions">
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const d = rlQuoteModal.data
+                    const text = `Origin: ${d.origin_zip}\nDestination: ${d.destination.zip}\nWeight: ${d.weight.value || 'TBD'} lbs\nClass: 85`
+                    navigator.clipboard.writeText(text)
+                    alert('Copied to clipboard!')
+                  }}
+                >
+                  📋 Copy Data
+                </button>
                 <a 
                   href={rlQuoteModal.data.rl_quote_url} 
                   target="_blank" 
