@@ -432,23 +432,11 @@ body {
 /* Shipping modal - position on left to leave room for RL popup */
 .shipping-modal-overlay {
   justify-content: flex-start;
-  padding-left: 20px;
-  padding-top: 20px;
+  padding-left: 1rem;
 }
 
 .shipping-modal {
   max-width: 500px;
-  margin-top: 0;
-}
-
-/* URL input row with button */
-.url-input-row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.url-input-row input {
-  flex: 1;
 }
 
 /* === ORDER DETAIL MODAL === */
