@@ -39,6 +39,8 @@ function App() {
   const [aiSummary, setAiSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [rlQuoteModal, setRlQuoteModal] = useState(null)  // { shipmentId, data }
+  const [rlQuoteLoading, setRlQuoteLoading] = useState(false)
   
   // Check if already logged in
   useEffect(() => {
@@ -141,6 +143,36 @@ function App() {
       setAiSummary('Failed to generate summary')
     }
     setSummaryLoading(false)
+  }
+  
+  const loadRlQuoteData = async (shipmentId) => {
+    setRlQuoteLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/shipments/${shipmentId}/rl-quote-data`)
+      const data = await res.json()
+      if (data.status === 'ok') {
+        setRlQuoteModal({ shipmentId, data })
+      }
+    } catch (err) {
+      console.error('Failed to load RL quote data:', err)
+    }
+    setRlQuoteLoading(false)
+  }
+  
+  const saveRlQuote = async (shipmentId, quoteNumber, quotePrice) => {
+    const customerPrice = quotePrice ? parseFloat(quotePrice) + 50 : null
+    try {
+      const params = new URLSearchParams()
+      if (quoteNumber) params.append('rl_quote_number', quoteNumber)
+      if (quotePrice) params.append('rl_quote_price', quotePrice)
+      if (customerPrice) params.append('rl_customer_price', customerPrice)
+      
+      await fetch(`${API_URL}/shipments/${shipmentId}?${params.toString()}`, { method: 'PATCH' })
+      loadOrders()
+      setRlQuoteModal(null)
+    } catch (err) {
+      console.error('Failed to save RL quote:', err)
+    }
   }
   
   const resolveAlert = async (alertId) => {
@@ -456,6 +488,15 @@ function App() {
                             <option value="BoxTruck">Box Truck</option>
                             <option value="LiDelivery">Li Delivery</option>
                           </select>
+                          {ship.ship_method === 'LTL' && (
+                            <button 
+                              className="rl-quote-btn"
+                              onClick={() => loadRlQuoteData(ship.shipment_id)}
+                              title={ship.rl_quote_number ? `Quote: ${ship.rl_quote_number}` : 'Get RL Quote'}
+                            >
+                              {ship.rl_quote_number ? `Q:${ship.rl_quote_number}` : 'RL Quote'}
+                            </button>
+                          )}
                           <input 
                             type="text" 
                             className="shipment-tracking-input"
@@ -642,6 +683,124 @@ function App() {
                     }
                   }}
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* RL Quote Modal */}
+      {rlQuoteModal && (
+        <div className="modal-overlay" onClick={() => setRlQuoteModal(null)}>
+          <div className="modal rl-quote-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>RL Carriers Quote - {rlQuoteModal.data.shipment_id}</h2>
+              <button className="modal-close" onClick={() => setRlQuoteModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="rl-quote-info">
+                <div className="rl-quote-row">
+                  <label>Origin (Warehouse):</label>
+                  <span className="rl-value">{rlQuoteModal.data.warehouse} - <strong>{rlQuoteModal.data.origin_zip}</strong></span>
+                </div>
+                <div className="rl-quote-row">
+                  <label>Destination:</label>
+                  <span className="rl-value">
+                    {rlQuoteModal.data.destination.name}<br/>
+                    {rlQuoteModal.data.destination.city}, {rlQuoteModal.data.destination.state} - <strong>{rlQuoteModal.data.destination.zip}</strong>
+                  </span>
+                </div>
+                <div className="rl-quote-row">
+                  <label>Weight:</label>
+                  <span className="rl-value">
+                    {rlQuoteModal.data.weight.calculated ? (
+                      <>{rlQuoteModal.data.weight.calculated} lbs (calculated)</>
+                    ) : rlQuoteModal.data.weight.shipment_weight ? (
+                      <>{rlQuoteModal.data.weight.shipment_weight} lbs</>
+                    ) : (
+                      <span className="rl-warning">⚠️ Enter weight manually on RL site</span>
+                    )}
+                    {rlQuoteModal.data.weight.needs_manual_entry && (
+                      <span className="rl-warning"> (Multi-warehouse - verify weight)</span>
+                    )}
+                  </span>
+                </div>
+                {rlQuoteModal.data.oversized.detected && (
+                  <div className="rl-quote-row rl-oversized-warning">
+                    <label>⚠️ Oversized Items:</label>
+                    <span className="rl-value">
+                      Check "Dimensions" box on RL quote!
+                      <ul>
+                        {rlQuoteModal.data.oversized.items.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </span>
+                  </div>
+                )}
+                <div className="rl-quote-row">
+                  <label>Class:</label>
+                  <span className="rl-value"><strong>85</strong> (always)</span>
+                </div>
+              </div>
+              
+              <div className="rl-quote-actions">
+                <a 
+                  href={rlQuoteModal.data.rl_quote_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                >
+                  Open RL Quote Page →
+                </a>
+              </div>
+              
+              <div className="rl-quote-entry">
+                <h4>Enter Quote Results:</h4>
+                <div className="rl-quote-inputs">
+                  <div className="rl-input-group">
+                    <label>Quote Number:</label>
+                    <input 
+                      type="text" 
+                      id="rl-quote-number"
+                      defaultValue={rlQuoteModal.data.existing_quote.quote_number || ''}
+                      placeholder="e.g., 9680088"
+                    />
+                  </div>
+                  <div className="rl-input-group">
+                    <label>Quote Price ($):</label>
+                    <input 
+                      type="number" 
+                      id="rl-quote-price"
+                      step="0.01"
+                      defaultValue={rlQuoteModal.data.existing_quote.quote_price || ''}
+                      placeholder="e.g., 179.38"
+                    />
+                  </div>
+                  <div className="rl-input-group">
+                    <label>Customer Price (+$50):</label>
+                    <input 
+                      type="text" 
+                      id="rl-customer-price"
+                      readOnly
+                      value={rlQuoteModal.data.existing_quote.customer_price ? 
+                        `$${rlQuoteModal.data.existing_quote.customer_price.toFixed(2)}` : 
+                        'Auto-calculated'
+                      }
+                      className="rl-calculated"
+                    />
+                  </div>
+                </div>
+                <button 
+                  className="btn btn-success"
+                  onClick={() => {
+                    const quoteNum = document.getElementById('rl-quote-number').value
+                    const quotePrice = document.getElementById('rl-quote-price').value
+                    saveRlQuote(rlQuoteModal.shipmentId, quoteNum, quotePrice)
+                  }}
+                >
+                  Save Quote
+                </button>
               </div>
             </div>
           </div>

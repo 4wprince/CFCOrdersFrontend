@@ -769,3 +769,150 @@ body {
     width: 110px;
   }
 }
+
+/* RL Quote Button */
+.rl-quote-btn {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background: #e8f5e9;
+  border: 1px solid #4caf50;
+  border-radius: 4px;
+  color: #2e7d32;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rl-quote-btn:hover {
+  background: #c8e6c9;
+}
+
+/* RL Quote Modal */
+.rl-quote-modal {
+  max-width: 600px;
+}
+
+.rl-quote-info {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.rl-quote-row {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.rl-quote-row:last-child {
+  border-bottom: none;
+}
+
+.rl-quote-row label {
+  font-weight: 600;
+  min-width: 140px;
+  color: #555;
+}
+
+.rl-value {
+  flex: 1;
+}
+
+.rl-value strong {
+  color: #1a73e8;
+}
+
+.rl-warning {
+  color: #f57c00;
+  font-weight: 500;
+}
+
+.rl-oversized-warning {
+  background: #fff3e0;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.rl-oversized-warning ul {
+  margin: 0.5rem 0 0 1.5rem;
+  font-size: 0.875rem;
+}
+
+.rl-quote-actions {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.rl-quote-entry {
+  background: #e3f2fd;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.rl-quote-entry h4 {
+  margin-bottom: 1rem;
+  color: #1565c0;
+}
+
+.rl-quote-inputs {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.rl-input-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.rl-input-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.rl-input-group input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.rl-input-group input.rl-calculated {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-primary {
+  background: #1a73e8;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1557b0;
+}
+
+.btn-success {
+  background: #2e7d32;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #1b5e20;
+}
