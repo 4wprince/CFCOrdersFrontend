@@ -751,14 +751,21 @@ function App() {
                 >
                   📋 Copy Data
                 </button>
-                <a 
-                  href={rlQuoteModal.data.rl_quote_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
+                <button 
                   className="btn btn-primary"
+                  onClick={() => {
+                    // Open RL in right half of screen
+                    const w = window.screen.width / 2
+                    const h = window.screen.height
+                    window.open(
+                      rlQuoteModal.data.rl_quote_url,
+                      'RLQuote',
+                      `width=${w},height=${h},left=${w},top=0`
+                    )
+                  }}
                 >
                   Open RL Quote Page →
-                </a>
+                </button>
               </div>
               
               <div className="rl-quote-entry">
