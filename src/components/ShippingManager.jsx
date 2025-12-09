@@ -71,6 +71,10 @@ const ShippingManager = ({
   // Box Truck pricing
   const [btCost, setBtCost] = useState(shipment?.quote_price || '')
   const [btCharge, setBtCharge] = useState(shipment?.customer_price || '')
+
+ // Pirateship quote URL
+  const [psQuoteUrl, setPsQuoteUrl] = useState(shipment?.ps_quote_url || '')
+  const [psSaved, setPsSaved] = useState(!!shipment?.ps_quote_url)
   
   // Mark tip as shown on mount
   useEffect(() => {
@@ -173,7 +177,36 @@ const ShippingManager = ({
       console.error('Failed to save Box Truck pricing:', err)
     }
   }
-  
+
+  const savePirateshipUrl = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (psQuoteUrl) params.append('ps_quote_url', psQuoteUrl)
+      
+      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, {
+        method: 'PATCH'
+      })
+      
+      setPsSaved(true)
+      if (onUpdate) onUpdate()
+    } catch (err) {
+      console.error('Failed to save Pirateship URL:', err)
+    }
+  }
+
+  const openPirateshipQuote = () => {
+    if (psQuoteUrl) {
+      const w = 800
+      const h = window.screen.height
+      const left = window.screen.width - w
+      window.open(psQuoteUrl, 'ShippingQuote', `width=${w},height=${h},left=${left},top=0,resizable=yes,scrollbars=yes`)
+    }
+  }
+
+  const handleChangePsUrl = () => {
+    setPsSaved(false)
+  }
+
 const openExternalSite = (url) => {
     const w = 800
     const h = window.screen.height
@@ -312,31 +345,70 @@ const openExternalSite = (url) => {
         
         <SnapTip />
         
-        <div className="pirateship-helper">
+<div className="pirateship-helper">
           <h3>Pirateship - Copy Address</h3>
-          
-          <CustomerAddress 
+
+          <CustomerAddress
             destination={customerInfo}
             title="Ship To"
           />
-          
+
           <div className="pirateship-actions">
-            <button 
-              className="btn btn-primary" 
+            <button
+              className="btn btn-primary"
               onClick={() => openExternalSite('https://ship.pirateship.com/ship/single')}
             >
               Open Pirateship →
             </button>
           </div>
-          
-          <button className="btn btn-success" onClick={handleSave}>
-            Done
-          </button>
+
+          <div className="input-group full-width">
+            <label>Quote URL (from Pirateship):</label>
+            <div className="url-input-row">
+              <input 
+                type="text"
+                value={psQuoteUrl}
+                onChange={(e) => setPsQuoteUrl(e.target.value)}
+                placeholder="https://ship.pirateship.com/..."
+                disabled={psSaved}
+              />
+            </div>
+          </div>
+
+          <div className="button-row">
+            {psSaved ? (
+              <>
+                <button 
+                  className="btn btn-success" 
+                  onClick={openPirateshipQuote}
+                >
+                  Open Quote
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleChangePsUrl}
+                >
+                  Change URL
+                </button>
+                <button className="btn btn-secondary" onClick={handleSave}>
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  className="btn btn-success" 
+                  onClick={savePirateshipUrl}
+                >
+                  Save Quote
+                </button>
+                <button className="btn btn-secondary" onClick={handleSave}>
+                  Done
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    )
-  }
-  
   // Li Delivery view
   if (view === 'lidelivery') {
     return (
