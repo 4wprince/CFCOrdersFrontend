@@ -128,8 +128,8 @@ Thank you for your business,
 The Cabinets For Contractors Team`
     
     // Open mailto - will open in default email client
-    const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    window.location.href = mailtoUrl
+   const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+window.open(mailtoUrl, '_blank')
   }
   
   // Check if shipment has any quote/price info
