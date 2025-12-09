@@ -407,7 +407,7 @@ const openExternalSite = (url) => {
                 </button>
               </>
             )}
-</div>
+          </div>
         </div>
       </div>
     )
