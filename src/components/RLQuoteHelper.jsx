@@ -14,6 +14,7 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
   const [quotePrice, setQuotePrice] = useState(data.existing_quote?.quote_price || '')
   const [quoteUrl, setQuoteUrl] = useState(data.existing_quote?.quote_url || '')
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(!!data.existing_quote?.quote_url)
   
   // Calculate customer price (+$50 markup)
   const customerPrice = quotePrice ? (parseFloat(quotePrice) + 50).toFixed(2) : null
@@ -33,11 +34,11 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
       if (quoteUrl) params.append('quote_url', quoteUrl)
       
       await fetch(`${API_URL}/shipments/${shipmentId}?${params.toString()}`, {
-        method: 'PATCH' 
+        method: 'PATCH'
       })
       
+      setSaved(true)
       if (onSave) onSave()
-      onClose()
     } catch (err) {
       console.error('Failed to save RL quote:', err)
       alert('Failed to save quote. Please try again.')
@@ -57,6 +58,10 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
     if (quoteUrl) {
       window.open(quoteUrl, '_blank')
     }
+  }
+  
+  const handleChangeUrl = () => {
+    setSaved(false)
   }
   
   return (
@@ -151,22 +156,37 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
               value={quoteUrl}
               onChange={(e) => setQuoteUrl(e.target.value)}
               placeholder="https://www.rlcarriers.com/freight/shipping/rate-quote?id=..."
+              disabled={saved}
             />
-            {quoteUrl && (
-              <button className="btn btn-sm btn-secondary" onClick={openSavedQuote}>
-                Open →
-              </button>
-            )}
           </div>
         </div>
         
-         <button 
-          className="btn btn-success" 
-          onClick={quoteUrl ? openSavedQuote : handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : (quoteUrl ? 'Open Quote' : 'Save Quote')}
-        </button>
+        <div className="button-row">
+          {saved ? (
+            <>
+              <button 
+                className="btn btn-success" 
+                onClick={openSavedQuote}
+              >
+                Open Quote
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleChangeUrl}
+              >
+                Change URL
+              </button>
+            </>
+          ) : (
+            <button 
+              className="btn btn-success" 
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Quote'}
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Section 3: BOL Helper - Customer Address */}
