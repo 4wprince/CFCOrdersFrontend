@@ -107,7 +107,7 @@ function App() {
   
   // === FILTERING ===
   
-const getFilteredOrders = () => {
+  const getFilteredOrders = () => {
     let filtered = orders
     
     // Filter by status
@@ -202,7 +202,7 @@ const getFilteredOrders = () => {
         <h1>CFC Orders</h1>
         <div className="header-actions">
           <button onClick={loadOrders} disabled={loading}>
-            {loading ? 'Loading...' : '↻ Refresh'}
+            {loading ? 'Loading...' : 'Refresh'}
           </button>
           <button onClick={handleLogout}>Logout</button>
         </div>
@@ -242,7 +242,7 @@ const getFilteredOrders = () => {
           <div className="modal order-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Order #{selectedOrder.order_id}</h2>
-              <button className="modal-close" onClick={closeOrderDetail}>×</button>
+              <button className="modal-close" onClick={closeOrderDetail}>x</button>
             </div>
             <div className="modal-body">
               {/* Customer Info */}
@@ -333,7 +333,7 @@ const getFilteredOrders = () => {
           <div className="modal shipping-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Shipping - {shippingModal.shipment.warehouse}</h2>
-              <button className="modal-close" onClick={closeShippingManager}>×</button>
+              <button className="modal-close" onClick={closeShippingManager}>x</button>
             </div>
             <div className="modal-body">
               <ShippingManager 
