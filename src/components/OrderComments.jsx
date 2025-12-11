@@ -22,6 +22,10 @@ const OrderComments = ({ order, onUpdate }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes })
       })
+      // Auto-refresh AI summary after saving notes
+      await fetch(`${API_URL}/orders/${order.order_id}/generate-summary?force=true`, {
+        method: 'POST'
+      })
       setIsEditing(false)
       if (onUpdate) onUpdate()
     } catch (err) {
