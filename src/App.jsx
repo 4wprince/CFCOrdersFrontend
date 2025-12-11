@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react'
 import StatusBar from './components/StatusBar'
 import OrderCard from './components/OrderCard'
 import ShippingManager from './components/ShippingManager'
+import OrderComments from './components/OrderComments'
 
 const API_URL = 'https://cfc-backend-b83s.onrender.com'
 const APP_PASSWORD = 'cfc2025'
@@ -304,24 +305,11 @@ function App() {
                       </button>
                     </div>
                   ))}
-                </div>
+              </div>
               )}
               
-              {/* Notes */}
-              {selectedOrder.comments && (
-                <div className="detail-section">
-                  <h3>Comments</h3>
-                  <p>{selectedOrder.comments}</p>
-                </div>
-              )}
-              
-              {/* AI Summary */}
-              {selectedOrder.ai_summary && (
-                <div className="detail-section">
-                  <h3>AI Summary</h3>
-                  <pre className="ai-summary">{selectedOrder.ai_summary}</pre>
-                </div>
-              )}
+              {/* Comments & AI Summary */}
+              <OrderComments order={selectedOrder} onUpdate={loadOrders} />
             </div>
           </div>
         </div>
