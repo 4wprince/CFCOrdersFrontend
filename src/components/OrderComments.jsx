@@ -1,7 +1,7 @@
 /**
  * OrderComments.jsx
  * Display and edit internal notes for an order
- * v1.0.1 - Fixed fetch syntax
+ * v1.0.2 - Improved save + AI summary refresh error handling
  */
 
 import { useState } from 'react'
@@ -17,34 +17,61 @@ const OrderComments = ({ order, onUpdate }) => {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await fetch(`${API_URL}/orders/${order.order_id}`, {
+      // 1) Save internal notes
+      const patchRes = await fetch(`${API_URL}/orders/${order.order_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes })
       })
-      // Auto-refresh AI summary after saving notes
-      await fetch(`${API_URL}/orders/${order.order_id}/generate-summary?force=true`, {
-        method: 'POST'
-      })
+
+      if (!patchRes.ok) {
+        const errorText = await patchRes.text().catch(() => '')
+        console.error('Failed to save notes. Status:', patchRes.status, errorText)
+        throw new Error('Failed to save notes')
+      }
+
+      // 2) Force-regenerate AI summary after notes are saved
+      const summaryRes = await fetch(
+        `${API_URL}/orders/${order.order_id}/generate-summary?force=true`,
+        { method: 'POST' }
+      )
+
+      if (!summaryRes.ok) {
+        const errorText = await summaryRes.text().catch(() => '')
+        console.error('Failed to refresh AI summary. Status:', summaryRes.status, errorText)
+        throw new Error('Failed to refresh AI summary')
+      }
+
+      // 3) Close editor and let parent re-fetch updated order (including ai_summary)
       setIsEditing(false)
       if (onUpdate) onUpdate()
     } catch (err) {
-      console.error('Failed to save notes:', err)
+      console.error('Failed to save notes or refresh summary:', err)
+    } finally {
+      setIsSaving(false)
     }
-    setIsSaving(false)
   }
 
   const handleRefreshSummary = async () => {
     setIsRefreshingSummary(true)
     try {
-      await fetch(`${API_URL}/orders/${order.order_id}/generate-summary?force=true`, {
-        method: 'POST'
-      })
+      const summaryRes = await fetch(
+        `${API_URL}/orders/${order.order_id}/generate-summary?force=true`,
+        { method: 'POST' }
+      )
+
+      if (!summaryRes.ok) {
+        const errorText = await summaryRes.text().catch(() => '')
+        console.error('Failed to refresh AI summary. Status:', summaryRes.status, errorText)
+        throw new Error('Failed to refresh AI summary')
+      }
+
       if (onUpdate) onUpdate()
     } catch (err) {
       console.error('Failed to refresh summary:', err)
+    } finally {
+      setIsRefreshingSummary(false)
     }
-    setIsRefreshingSummary(false)
   }
 
   return (
@@ -62,7 +89,7 @@ const OrderComments = ({ order, onUpdate }) => {
         <div className="section-header">
           <h4>Internal Notes</h4>
           {!isEditing && (
-            <button 
+            <button
               className="btn btn-sm btn-secondary"
               onClick={() => setIsEditing(true)}
             >
@@ -80,14 +107,14 @@ const OrderComments = ({ order, onUpdate }) => {
               rows={4}
             />
             <div className="editor-actions">
-              <button 
+              <button
                 className="btn btn-sm btn-success"
                 onClick={handleSave}
                 disabled={isSaving}
               >
                 {isSaving ? 'Saving...' : 'Save'}
               </button>
-              <button 
+              <button
                 className="btn btn-sm btn-secondary"
                 onClick={() => {
                   setNotes(order.notes || '')
@@ -108,7 +135,7 @@ const OrderComments = ({ order, onUpdate }) => {
       <div className="comments-section">
         <div className="section-header">
           <h4>AI Summary</h4>
-          <button 
+          <button
             className="btn btn-sm btn-secondary"
             onClick={handleRefreshSummary}
             disabled={isRefreshingSummary}
