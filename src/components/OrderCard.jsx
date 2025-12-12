@@ -149,40 +149,41 @@ const OrderCard = ({
     <div className="order-header">
       <div className="order-id" onClick={() => onOpenDetail(order)}>#{order.order_id}</div>
       {orderDate && <div className="order-date">{orderDate}</div>}
-      <select 
-        className="status-dropdown"
-        value={order.current_status || 'needs_payment_link'}
-        onChange={handleStatusChange}
-        onClick={(e) => e.stopPropagation()}
-        disabled={isUpdating}
-        style={{ 
-          backgroundColor: status.color + '20', 
-          color: status.color,
-          borderColor: status.color
-        }}
-      >
-        {STATUS_OPTIONS.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-
-      {typeof order.days_open === 'number' && (
-        <div className="days-open-pill">
-          {order.days_open === 0
-            ? 'Today'
-            : order.days_open === 1
-              ? '1 Day'
-              : `${order.days_open} Days`}
+   return (
+    <div className="order-card" style={{ borderLeftColor: status.color }}>
+      <div className="order-header">
+        <div className="order-id" onClick={() => onOpenDetail(order)}>
+          #{order.order_id}
         </div>
-      )}
-        >
-          {STATUS_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
+        {orderDate && <div className="order-date">{orderDate}</div>}
+
+        <select ...>   {/* as in block above */}
+          ...
         </select>
-        {order.days_open > 0 && (
-          <div className="days-open">{order.days_open}d</div>
+
+        {typeof order.days_open === 'number' && (
+          <div className="days-open-pill">...</div>
         )}
+      </div>
+
+      <div className="order-body" onClick={() => onOpenDetail(order)}>
+        <div className="customer-info">
+        
+           {STATUS_OPTIONS.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+
+    {typeof order.days_open === 'number' && (
+      <div className="days-open-pill">
+        {order.days_open === 0
+          ? 'Today'
+          : order.days_open === 1
+            ? '1 Day'
+            : `${order.days_open} Days`}
+      </div>
+    )}
+
       </div>
       
       <div className="order-body" onClick={() => onOpenDetail(order)}>
