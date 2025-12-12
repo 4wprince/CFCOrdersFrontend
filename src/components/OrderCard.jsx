@@ -142,11 +142,23 @@ const OrderCard = ({
     }
   }
   
-  const shippingTotals = calculateShippingTotals()
-  
+  const shippingTotals = calculateShippingTotals();
+
+  const createdAt = order.created_at ? new Date(order.created_at) : null;
+  const now = new Date();
+
+  const daysOpen =
+    createdAt !== null
+      ? Math.max(
+          0,
+          Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+        )
+      : null;
+
   return (
-  <div className="order-card" style={{ borderLeftColor: status.color }}>
-    <div className="order-header">
+    <div className="order-card" style={{ borderLeftColor: status.color }}>
+      <div className="order-header">
+        
       <div className="order-id" onClick={() => onOpenDetail(order)}>#{order.order_id}</div>
       {orderDate && <div className="order-date">{orderDate}</div>}
    return (
