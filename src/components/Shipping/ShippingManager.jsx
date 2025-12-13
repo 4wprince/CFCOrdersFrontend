@@ -1,14 +1,12 @@
 /**
  * ShippingManager.jsx
  * Central hub for shipping method selection and routing
- * v5.8.4 - New tab instead of popup, snap tip, BoxTruck quote
  */
 
 import { useState, useEffect } from 'react'
 import RLQuoteHelper from './RLQuoteHelper'
-import { CustomerAddress } from './CustomerAddress'
-
-const API_URL = 'https://cfcorderbackend-sandbox.onrender.com'
+import { CustomerAddress } from '../shared/CustomerAddress'
+import { fetchRLQuoteData, updateShipment } from '../../api/api'
 
 // Check if we should show the snap tip
 const shouldShowSnapTip = () => {
@@ -72,7 +70,7 @@ const ShippingManager = ({
   const [btCost, setBtCost] = useState(shipment?.quote_price || '')
   const [btCharge, setBtCharge] = useState(shipment?.customer_price || '')
 
-// Pirateship quote
+  // Pirateship quote
   const [psQuoteUrl, setPsQuoteUrl] = useState(shipment?.ps_quote_url || '')
   const [psQuotePrice, setPsQuotePrice] = useState(shipment?.ps_quote_price || '')
   const [psSaved, setPsSaved] = useState(!!shipment?.ps_quote_url || !!shipment?.ps_quote_price)
@@ -100,8 +98,7 @@ const ShippingManager = ({
   const loadRLData = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/shipments/${shipment.shipment_id}/rl-quote-data`)
-      const data = await res.json()
+      const data = await fetchRLQuoteData(shipment.shipment_id)
       if (data.status === 'ok') {
         setRlData(data)
       } else {
@@ -118,9 +115,7 @@ const ShippingManager = ({
     
     // Save method to backend
     try {
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?ship_method=${newMethod}`, {
-        method: 'PATCH'
-      })
+      await updateShipment(shipment.shipment_id, { ship_method: newMethod })
       if (onUpdate) onUpdate()
     } catch (err) {
       console.error('Failed to update shipping method:', err)
@@ -147,12 +142,9 @@ const ShippingManager = ({
   
   const saveLiPricing = async () => {
     try {
-      const params = new URLSearchParams()
-      params.append('li_quote_price', liCost)
-      params.append('li_customer_price', liCharge)
-      
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, {
-        method: 'PATCH'
+      await updateShipment(shipment.shipment_id, {
+        li_quote_price: liCost,
+        li_customer_price: liCharge
       })
       
       if (onUpdate) onUpdate()
@@ -162,15 +154,13 @@ const ShippingManager = ({
     }
   }
   
- const saveBoxTruckPricing = async () => {
+  const saveBoxTruckPricing = async () => {
     try {
-      const params = new URLSearchParams()
-      if (btCost) params.append('quote_price', btCost)
-      if (btCharge) params.append('customer_price', btCharge)
+      const params = {}
+      if (btCost) params.quote_price = btCost
+      if (btCharge) params.customer_price = btCharge
       
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, {
-        method: 'PATCH'
-      })
+      await updateShipment(shipment.shipment_id, params)
       
       if (onUpdate) onUpdate()
       onClose()
@@ -179,15 +169,13 @@ const ShippingManager = ({
     }
   }
 
-const savePirateshipQuote = async () => {
+  const savePirateshipQuote = async () => {
     try {
-      const params = new URLSearchParams()
-      if (psQuoteUrl) params.append('ps_quote_url', psQuoteUrl)
-      if (psQuotePrice) params.append('ps_quote_price', psQuotePrice)
+      const params = {}
+      if (psQuoteUrl) params.ps_quote_url = psQuoteUrl
+      if (psQuotePrice) params.ps_quote_price = psQuotePrice
       
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, {
-        method: 'PATCH'
-      })
+      await updateShipment(shipment.shipment_id, params)
       
       setPsSaved(true)
       if (onUpdate) onUpdate()
@@ -209,7 +197,7 @@ const savePirateshipQuote = async () => {
     setPsSaved(false)
   }
 
-const openExternalSite = (url) => {
+  const openExternalSite = (url) => {
     const w = 800
     const h = window.screen.height
     const left = window.screen.width - w
@@ -267,7 +255,7 @@ const openExternalSite = (url) => {
           >
             <span className="method-icon">📦</span>
             <span className="method-name">Pirateship</span>
-            <span className="method-desc">UPS/USPS parcel</span>
+            <span className="method-desc">UPS/USPS shipping</span>
           </button>
           
           <button 
@@ -347,7 +335,7 @@ const openExternalSite = (url) => {
         
         <SnapTip />
         
-<div className="pirateship-helper">
+        <div className="pirateship-helper">
           <h3>Pirateship - Copy Address</h3>
 
           <CustomerAddress
@@ -391,7 +379,6 @@ const openExternalSite = (url) => {
 
           <div className="button-row">
             {psSaved ? (
-
               <>
                 <button 
                   className="btn btn-success" 

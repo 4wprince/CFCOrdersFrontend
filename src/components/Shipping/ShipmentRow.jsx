@@ -1,29 +1,12 @@
 /**
  * ShipmentRow.jsx
  * Display a single warehouse shipment with status, method, and actions
- * v5.8.4 - Shipping button for all methods, mailto from CFC email
  */
 
 import { useState } from 'react'
-
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'quoted', label: 'Quoted' },
-  { value: 'booked', label: 'Booked' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'delivered', label: 'Delivered' }
-]
-
-const METHOD_OPTIONS = [
-  { value: '', label: 'Select...' },
-  { value: 'LTL', label: 'LTL' },
-  { value: 'Pirateship', label: 'Pirateship' },
-  { value: 'Pickup', label: 'Pickup' },
-  { value: 'BoxTruck', label: 'BoxTruck' },
-  { value: 'LiDelivery', label: 'LiDelivery' }
-]
-
-const API_URL = 'https://cfcorderbackend-sandbox.onrender.com'
+import { updateShipmentStatus, updateShipmentMethod, updateShipmentTracking } from '../../api/api'
+import { SHIPMENT_STATUS_OPTIONS, SHIPPING_METHOD_OPTIONS } from '../../utils/constants'
+import { getCarrierFromTracking } from '../../utils/shippingCalculations'
 
 const ShipmentRow = ({ 
   shipment, 
@@ -38,9 +21,7 @@ const ShipmentRow = ({
   const handleStatusChange = async (newStatus) => {
     setUpdating(true)
     try {
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?status=${newStatus}`, {
-        method: 'PATCH'
-      })
+      await updateShipmentStatus(shipment.shipment_id, newStatus)
       if (onUpdate) onUpdate()
     } catch (err) {
       console.error('Failed to update status:', err)
@@ -51,9 +32,7 @@ const ShipmentRow = ({
   const handleMethodChange = async (newMethod) => {
     setUpdating(true)
     try {
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?ship_method=${newMethod}`, {
-        method: 'PATCH'
-      })
+      await updateShipmentMethod(shipment.shipment_id, newMethod)
       if (onUpdate) onUpdate()
       
       // Open shipping manager for methods that need helpers
@@ -71,14 +50,8 @@ const ShipmentRow = ({
     
     setUpdating(true)
     try {
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?tracking_number=${encodeURIComponent(trackingNumber)}`, {
-        method: 'PATCH'
-      })
-      
-      // Update status to shipped
-      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?status=shipped`, {
-        method: 'PATCH'
-      })
+      await updateShipmentTracking(shipment.shipment_id, trackingNumber)
+      await updateShipmentStatus(shipment.shipment_id, 'shipped')
       
       if (onUpdate) onUpdate()
       setShowTrackingInput(false)
@@ -98,22 +71,7 @@ const ShipmentRow = ({
     const orderId = order?.order_id || shipment.order_id
     const firstName = customerName.split(' ')[0]
     
-    // Determine carrier and tracking URL
-    let carrier = 'Freight'
-    let trackingUrl = ''
-    
-    if (shipment.ship_method === 'LTL') {
-      carrier = 'RL Carriers'
-      trackingUrl = `https://www.rlcarriers.com/freight/shipping/shipment-tracing?pro=${trackingNumber}`
-    } else if (shipment.ship_method === 'Pirateship' || shipment.ship_method === 'BoxTruck') {
-      if (trackingNumber.startsWith('1Z')) {
-        carrier = 'UPS'
-        trackingUrl = `https://www.ups.com/track?tracknum=${trackingNumber}`
-      } else if (trackingNumber.length === 22 || trackingNumber.length === 26) {
-        carrier = 'USPS'
-        trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`
-      }
-    }
+    const { carrier, trackingUrl } = getCarrierFromTracking(trackingNumber, shipment.ship_method)
     
     const subject = `${companyName}, please see tracking information for order ${orderId}`
     
@@ -127,9 +85,8 @@ ${trackingUrl ? `Track your shipment: ${trackingUrl}` : ''}
 Thank you for your business,
 The Cabinets For Contractors Team`
     
-    // Open mailto - will open in default email client
-   const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-window.open(mailtoUrl, '_blank')
+    const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.open(mailtoUrl, '_blank')
   }
   
   // Check if shipment has any quote/price info
@@ -149,7 +106,7 @@ window.open(mailtoUrl, '_blank')
           onChange={(e) => handleStatusChange(e.target.value)}
           className="status-select"
         >
-          {STATUS_OPTIONS.map(opt => (
+          {SHIPMENT_STATUS_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
@@ -159,12 +116,11 @@ window.open(mailtoUrl, '_blank')
           onChange={(e) => handleMethodChange(e.target.value)}
           className="method-select"
         >
-          {METHOD_OPTIONS.map(opt => (
+          {SHIPPING_METHOD_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
         
-        {/* Shipping button - show for all methods except Pickup */}
         {/* Shipping button - show for all shipments */}
         <button 
           className={`btn btn-sm ${hasQuoteInfo ? 'btn-quoted' : 'btn-quote'}`}

@@ -1,12 +1,10 @@
 /**
  * OrderComments.jsx
  * Display and edit internal notes for an order
- * v1.0.2 - Improved save + AI summary refresh error handling
  */
 
 import { useState } from 'react'
-
-const API_URL = 'https://cfcorderbackend-sandbox.onrender.com'
+import { updateOrder, generateAISummary } from '../../api/api'
 
 const OrderComments = ({ order, onUpdate }) => {
   const [notes, setNotes] = useState(order.notes || '')
@@ -18,31 +16,12 @@ const OrderComments = ({ order, onUpdate }) => {
     setIsSaving(true)
     try {
       // 1) Save internal notes
-      const patchRes = await fetch(`${API_URL}/orders/${order.order_id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes })
-      })
-
-      if (!patchRes.ok) {
-        const errorText = await patchRes.text().catch(() => '')
-        console.error('Failed to save notes. Status:', patchRes.status, errorText)
-        throw new Error('Failed to save notes')
-      }
+      await updateOrder(order.order_id, { notes })
 
       // 2) Force-regenerate AI summary after notes are saved
-      const summaryRes = await fetch(
-        `${API_URL}/orders/${order.order_id}/generate-summary?force=true`,
-        { method: 'POST' }
-      )
+      await generateAISummary(order.order_id, true)
 
-      if (!summaryRes.ok) {
-        const errorText = await summaryRes.text().catch(() => '')
-        console.error('Failed to refresh AI summary. Status:', summaryRes.status, errorText)
-        throw new Error('Failed to refresh AI summary')
-      }
-
-      // 3) Close editor and let parent re-fetch updated order (including ai_summary)
+      // 3) Close editor and let parent re-fetch updated order
       setIsEditing(false)
       if (onUpdate) onUpdate()
     } catch (err) {
@@ -55,17 +34,7 @@ const OrderComments = ({ order, onUpdate }) => {
   const handleRefreshSummary = async () => {
     setIsRefreshingSummary(true)
     try {
-      const summaryRes = await fetch(
-        `${API_URL}/orders/${order.order_id}/generate-summary?force=true`,
-        { method: 'POST' }
-      )
-
-      if (!summaryRes.ok) {
-        const errorText = await summaryRes.text().catch(() => '')
-        console.error('Failed to refresh AI summary. Status:', summaryRes.status, errorText)
-        throw new Error('Failed to refresh AI summary')
-      }
-
+      await generateAISummary(order.order_id, true)
       if (onUpdate) onUpdate()
     } catch (err) {
       console.error('Failed to refresh summary:', err)

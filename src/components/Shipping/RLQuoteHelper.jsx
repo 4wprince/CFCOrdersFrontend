@@ -1,13 +1,11 @@
 /**
  * RLQuoteHelper.jsx
  * Complete RL Carriers quote and BOL helper
- * v5.8.4 - Opens RL in new tab via prop, quote URL save
  */
 
 import { useState } from 'react'
-import { CustomerAddress, BillToAddress, CopyButton } from './CustomerAddress'
-
-const API_URL = 'https://cfcorderbackend-sandbox.onrender.com'
+import { CustomerAddress, BillToAddress, CopyButton } from '../shared/CustomerAddress'
+import { updateShipment } from '../../api/api'
 
 const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
   const [quoteNumber, setQuoteNumber] = useState(data.existing_quote?.quote_number || '')
@@ -27,15 +25,13 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const params = new URLSearchParams()
-      if (quoteNumber) params.append('rl_quote_number', quoteNumber)
-      if (quotePrice) params.append('rl_quote_price', quotePrice)
-      if (customerPrice) params.append('rl_customer_price', customerPrice)
-      if (quoteUrl) params.append('quote_url', quoteUrl)
+      const params = {}
+      if (quoteNumber) params.rl_quote_number = quoteNumber
+      if (quotePrice) params.rl_quote_price = quotePrice
+      if (customerPrice) params.rl_customer_price = customerPrice
+      if (quoteUrl) params.quote_url = quoteUrl
       
-      await fetch(`${API_URL}/shipments/${shipmentId}?${params.toString()}`, {
-        method: 'PATCH'
-      })
+      await updateShipment(shipmentId, params)
       
       setSaved(true)
       if (onSave) onSave()

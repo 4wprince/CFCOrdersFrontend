@@ -1,43 +1,21 @@
 /**
  * App.jsx - Main Application
- * v5.8.1 - Refactored with components
+ * v6.0.0 - Modular Refactor
  * 
- * Orchestrates:
+ * This file handles:
  * - Login/auth
  * - Order loading
- * - Component rendering
+ * - Routing to components
  * - Modal management
  */
 
 import { useState, useEffect } from 'react'
-import StatusBar from './components/StatusBar'
-import OrderCard from './components/OrderCard'
-import ShippingManager from './components/ShippingManager'
-import OrderComments from './components/OrderComments'
-
-const API_URL = 'https://cfc-backend-b83s.onrender.com'
-const APP_PASSWORD = 'cfc2025'
-
-// Status mapping for display
-const STATUS_MAP = {
-  'needs_payment_link': { label: '1-Need Invoice', class: 'needs-invoice' },
-  'awaiting_payment': { label: '2-Awaiting Pay', class: 'awaiting-pay' },
-  'needs_warehouse_order': { label: '3-Need to Order', class: 'needs-order' },
-  'awaiting_warehouse': { label: '4-At Warehouse', class: 'at-warehouse' },
-  'needs_bol': { label: '5-Need BOL', class: 'needs-bol' },
-  'awaiting_shipment': { label: '6-Ready Ship', class: 'ready-ship' },
-  'complete': { label: 'Complete', class: 'complete' }
-}
-
-const STATUS_OPTIONS = [
-  { value: 'needs_payment_link', label: '1-Need Invoice' },
-  { value: 'awaiting_payment', label: '2-Awaiting Pay' },
-  { value: 'needs_warehouse_order', label: '3-Need to Order' },
-  { value: 'awaiting_warehouse', label: '4-At Warehouse' },
-  { value: 'needs_bol', label: '5-Need BOL' },
-  { value: 'awaiting_shipment', label: '6-Ready Ship' },
-  { value: 'complete', label: 'Complete' }
-]
+import StatusBar from './components/shared/StatusBar'
+import OrderCard from './components/OrderCard/OrderCard'
+import ShippingManager from './components/Shipping/ShippingManager'
+import OrderComments from './components/OrderDetails/OrderComments'
+import { fetchOrders, updateOrder } from './api/api'
+import { APP_PASSWORD } from './utils/constants'
 
 function App() {
   // Auth state
@@ -55,7 +33,7 @@ function App() {
   
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [shippingModal, setShippingModal] = useState(null) // { shipment, customerInfo }
+  const [shippingModal, setShippingModal] = useState(null)
   
   // Check saved login
   useEffect(() => {
@@ -95,8 +73,7 @@ function App() {
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/orders?limit=200&include_complete=true`)
-      const data = await res.json()
+      const data = await fetchOrders(200, true)
       if (data.orders) {
         setOrders(data.orders)
       }
@@ -111,14 +88,11 @@ function App() {
   const getFilteredOrders = () => {
     let filtered = orders
     
-    // Filter by status
     if (statusFilter) {
       filtered = filtered.filter(o => o.current_status === statusFilter)
     } else if (showArchived) {
-      // Show ONLY complete/archived orders
       filtered = filtered.filter(o => o.current_status === 'complete')
     } else {
-      // Hide complete orders (show active only)
       filtered = filtered.filter(o => o.current_status !== 'complete')
     }
     
@@ -127,13 +101,9 @@ function App() {
   
   // === STATUS UPDATES ===
   
-  const updateOrderStatus = async (orderId, field, value) => {
+  const updateOrderField = async (orderId, field, value) => {
     try {
-      await fetch(`${API_URL}/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
-      })
+      await updateOrder(orderId, { [field]: value })
       loadOrders()
     } catch (err) {
       console.error('Failed to update order:', err)
@@ -280,7 +250,7 @@ function App() {
                       <input 
                         type="checkbox"
                         checked={selectedOrder[field] || false}
-                        onChange={(e) => updateOrderStatus(selectedOrder.order_id, field, e.target.checked)}
+                        onChange={(e) => updateOrderField(selectedOrder.order_id, field, e.target.checked)}
                       />
                       {label}
                     </label>
