@@ -1,40 +1,33 @@
 /**
  * App.jsx - Main Application
- * v6.0.0 - Modular Refactor
- * 
- * This file handles:
- * - Login/auth
- * - Order loading
- * - Routing to components
- * - Modal management
+ * v5.9.0 - Fixed status updates, removed broken modal checkboxes
  */
 
 import { useState, useEffect } from 'react'
-import StatusBar from './components/shared/StatusBar'
-import OrderCard from './components/OrderCard/OrderCard'
-import ShippingManager from './components/Shipping/ShippingManager'
-import OrderComments from './components/OrderDetails/OrderComments'
-import { fetchOrders, updateOrder } from './api/api'
-import { APP_PASSWORD } from './utils/constants'
+import StatusBar from './components/StatusBar'
+import OrderCard from './components/OrderCard'
+import ShippingManager from './components/ShippingManager'
+
+import { API_URL, APP_PASSWORD } from './config'
 
 function App() {
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
-  
+
   // Data state
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   // Filter state
   const [statusFilter, setStatusFilter] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
-  
+
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [shippingModal, setShippingModal] = useState(null)
-  
+
   // Check saved login
   useEffect(() => {
     const saved = localStorage.getItem('cfc_logged_in')
@@ -42,16 +35,16 @@ function App() {
       setIsLoggedIn(true)
     }
   }, [])
-  
+
   // Load data when logged in
   useEffect(() => {
     if (isLoggedIn) {
       loadOrders()
     }
   }, [isLoggedIn])
-  
+
   // === AUTH ===
-  
+
   const handleLogin = (e) => {
     e.preventDefault()
     if (password === APP_PASSWORD) {
@@ -62,18 +55,19 @@ function App() {
       setLoginError('Incorrect password')
     }
   }
-  
+
   const handleLogout = () => {
     setIsLoggedIn(false)
     localStorage.removeItem('cfc_logged_in')
   }
-  
+
   // === DATA LOADING ===
-  
+
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const data = await fetchOrders(200, true)
+      const res = await fetch(`${API_URL}/orders?limit=200&include_complete=true`)
+      const data = await res.json()
       if (data.orders) {
         setOrders(data.orders)
       }
@@ -82,44 +76,33 @@ function App() {
     }
     setLoading(false)
   }
-  
+
   // === FILTERING ===
-  
+
   const getFilteredOrders = () => {
-    let filtered = orders
-    
+    let filtered = orders || []
+
     if (statusFilter) {
-      filtered = filtered.filter(o => o.current_status === statusFilter)
+      filtered = filtered.filter(o => o && o.current_status === statusFilter)
     } else if (showArchived) {
-      filtered = filtered.filter(o => o.current_status === 'complete')
+      filtered = filtered.filter(o => o && o.current_status === 'complete')
     } else {
-      filtered = filtered.filter(o => o.current_status !== 'complete')
+      filtered = filtered.filter(o => o && o.current_status !== 'complete')
     }
-    
+
     return filtered
   }
-  
-  // === STATUS UPDATES ===
-  
-  const updateOrderField = async (orderId, field, value) => {
-    try {
-      await updateOrder(orderId, { [field]: value })
-      loadOrders()
-    } catch (err) {
-      console.error('Failed to update order:', err)
-    }
-  }
-  
+
   // === MODALS ===
-  
+
   const openOrderDetail = (order) => {
     setSelectedOrder(order)
   }
-  
+
   const closeOrderDetail = () => {
     setSelectedOrder(null)
   }
-  
+
   const openShippingManager = (shipment, order) => {
     setShippingModal({
       shipment,
@@ -135,14 +118,14 @@ function App() {
       }
     })
   }
-  
+
   const closeShippingManager = () => {
     setShippingModal(null)
     loadOrders()
   }
-  
+
   // === RENDER: LOGIN ===
-  
+
   if (!isLoggedIn) {
     return (
       <div className="login-container">
@@ -161,11 +144,22 @@ function App() {
       </div>
     )
   }
-  
+
+  // === RENDER: LOADING STATE ===
+
+  if (loading) {
+    return <div className="loading">Loading orders...</div>
+  }
+
+  if (!Array.isArray(orders)) {
+    return <div className="loading">Loading orders...</div>
+  }
+
   // === RENDER: MAIN APP ===
-  
-  const filteredOrders = getFilteredOrders()
-  
+
+  const result = getFilteredOrders()
+  const filteredOrders = Array.isArray(result) ? result : []
+
   return (
     <div className="app">
       {/* Header */}
@@ -178,7 +172,7 @@ function App() {
           <button onClick={handleLogout}>Logout</button>
         </div>
       </header>
-      
+
       {/* Status Filter Bar */}
       <StatusBar 
         orders={orders}
@@ -187,16 +181,14 @@ function App() {
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
       />
-      
+
       {/* Orders Grid */}
       <main className="orders-grid">
-        {loading ? (
-          <div className="loading">Loading orders...</div>
-        ) : filteredOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="empty">No orders found</div>
         ) : (
           filteredOrders.map(order => (
-            <OrderCard 
+            <OrderCard
               key={order.order_id}
               order={order}
               onOpenDetail={openOrderDetail}
@@ -206,58 +198,65 @@ function App() {
           ))
         )}
       </main>
-      
-      {/* Order Detail Modal */}
+
+      {/* Order Detail Modal - Customer info and address copy */}
       {selectedOrder && (
         <div className="modal-overlay" onClick={closeOrderDetail}>
           <div className="modal order-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Order #{selectedOrder.order_id}</h2>
-              <button className="modal-close" onClick={closeOrderDetail}>x</button>
+              <button className="modal-close" onClick={closeOrderDetail}>×</button>
             </div>
             <div className="modal-body">
-              {/* Customer Info */}
+              {/* Customer Info with Copy buttons */}
               <div className="detail-section">
-                <h3>Customer</h3>
-                <p><strong>{selectedOrder.company_name || selectedOrder.customer_name}</strong></p>
-                <p>{selectedOrder.street}</p>
-                <p>{selectedOrder.city}, {selectedOrder.state} {selectedOrder.zip_code}</p>
-                <p>{selectedOrder.phone}</p>
-                <p>{selectedOrder.email}</p>
+                <h3>Customer - Click to Copy</h3>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.company_name || selectedOrder.customer_name || '')}>
+                  <span className="label">Name:</span>
+                  <span className="value">{selectedOrder.company_name || selectedOrder.customer_name}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.street || '')}>
+                  <span className="label">Street:</span>
+                  <span className="value">{selectedOrder.street}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.city || '')}>
+                  <span className="label">City:</span>
+                  <span className="value">{selectedOrder.city}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.state || '')}>
+                  <span className="label">State:</span>
+                  <span className="value">{selectedOrder.state}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.zip_code || '')}>
+                  <span className="label">ZIP:</span>
+                  <span className="value">{selectedOrder.zip_code}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.phone || '')}>
+                  <span className="label">Phone:</span>
+                  <span className="value">{selectedOrder.phone}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
+                <div className="copy-field" onClick={() => navigator.clipboard.writeText(selectedOrder.email || '')}>
+                  <span className="label">Email:</span>
+                  <span className="value">{selectedOrder.email}</span>
+                  <span className="copy-icon">📋</span>
+                </div>
               </div>
-              
+
               {/* Order Info */}
               <div className="detail-section">
                 <h3>Order Details</h3>
                 <p>Total: ${parseFloat(selectedOrder.order_total || 0).toFixed(2)}</p>
                 <p>Date: {new Date(selectedOrder.order_date).toLocaleDateString()}</p>
                 <p>Days Open: {selectedOrder.days_open}</p>
+                <p>Status: {selectedOrder.current_status}</p>
               </div>
-              
-              {/* Status Controls */}
-              <div className="detail-section">
-                <h3>Status</h3>
-                <div className="status-checkboxes">
-                  {[
-                    { field: 'payment_link_sent', label: '1. Invoice Sent' },
-                    { field: 'payment_received', label: '2. Payment Received' },
-                    { field: 'sent_to_warehouse', label: '3. Sent to Warehouse' },
-                    { field: 'warehouse_confirmed', label: '4. Warehouse Confirmed' },
-                    { field: 'bol_sent', label: '5. BOL Sent' },
-                    { field: 'is_complete', label: '6. Complete' }
-                  ].map(({ field, label }) => (
-                    <label key={field} className="checkbox-row">
-                      <input 
-                        type="checkbox"
-                        checked={selectedOrder[field] || false}
-                        onChange={(e) => updateOrderField(selectedOrder.order_id, field, e.target.checked)}
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              
+
               {/* Shipments */}
               {selectedOrder.shipments && selectedOrder.shipments.length > 0 && (
                 <div className="detail-section">
@@ -275,23 +274,20 @@ function App() {
                       </button>
                     </div>
                   ))}
-              </div>
+                </div>
               )}
-              
-              {/* Comments & AI Summary */}
-              <OrderComments order={selectedOrder} onUpdate={loadOrders} />
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Shipping Manager Modal */}
       {shippingModal && (
         <div className="modal-overlay shipping-modal-overlay" onClick={closeShippingManager}>
           <div className="modal shipping-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Shipping - {shippingModal.shipment.warehouse}</h2>
-              <button className="modal-close" onClick={closeShippingManager}>x</button>
+              <button className="modal-close" onClick={closeShippingManager}>×</button>
             </div>
             <div className="modal-body">
               <ShippingManager 

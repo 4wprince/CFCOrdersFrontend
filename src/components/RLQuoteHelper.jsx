@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { CustomerAddress, BillToAddress, CopyButton } from './CustomerAddress'
 
-const API_URL = 'https://cfcorderbackend-sandbox.onrender.com'
+import { API_URL } from '../config'
 
 const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
   const [quoteNumber, setQuoteNumber] = useState(data.existing_quote?.quote_number || '')
@@ -50,7 +50,7 @@ const RLQuoteHelper = ({ shipmentId, data, onClose, onSave, onOpenRL }) => {
     if (onOpenRL) {
       onOpenRL()
     } else {
-      window.open('https://www.rlcarriers.com/freight/shipping/rate-quote', '_blank')
+      const w = 800; const h = window.screen.height; const left = window.screen.width - w; window.open("https://www.rlcarriers.com/freight/shipping/rate-quote", "ShippingQuote", `width=${w},height=${h},left=${left},top=0,resizable=yes,scrollbars=yes`)
     }
   }
   
