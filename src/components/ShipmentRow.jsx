@@ -1,16 +1,18 @@
 /**
  * ShipmentRow.jsx
  * Display a single warehouse shipment with status, method, and actions
- * v5.9.1 - Show shipping cost next to warehouse name
+ * v5.9.3 - Based on working v5.8.4, correct backend status values, Li_Delivery, cost display
  */
 
 import { useState } from 'react'
 import { API_URL } from '../config'
 
+// Backend expects these exact status values
 const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'quoted', label: 'Quoted' },
-  { value: 'booked', label: 'Booked' },
+  { value: 'needs_order', label: 'Pending' },
+  { value: 'at_warehouse', label: 'At Warehouse' },
+  { value: 'needs_bol', label: 'Needs BOL' },
+  { value: 'ready_ship', label: 'Ready Ship' },
   { value: 'shipped', label: 'Shipped' },
   { value: 'delivered', label: 'Delivered' }
 ]
@@ -21,18 +23,15 @@ const METHOD_OPTIONS = [
   { value: 'Pirateship', label: 'Pirateship' },
   { value: 'Pickup', label: 'Pickup' },
   { value: 'BoxTruck', label: 'BoxTruck' },
-  { value: 'LiDelivery', label: 'LiDelivery' }
+  { value: 'LiDelivery', label: 'Li_Delivery' }
 ]
 
-// Get shipping cost for this shipment
+// Get shipping cost for display
 const getShippingCost = (shipment) => {
-  const cost = 
-    Number(shipment.rl_customer_price) || 
-    Number(shipment.li_customer_price) || 
-    Number(shipment.customer_price) ||
-    Number(shipment.ps_quote_price) ||
-    0
-  return cost
+  return Number(shipment.rl_customer_price) || Number(shipment.li_customer_price) || 
+         Number(shipment.customer_price) || Number(shipment.ps_quote_price) ||
+         Number(shipment.rl_quote_price) || Number(shipment.li_quote_price) || 
+         Number(shipment.quote_price) || 0
 }
 
 const ShipmentRow = ({ 
@@ -108,6 +107,7 @@ const ShipmentRow = ({
     const orderId = order?.order_id || shipment.order_id
     const firstName = customerName.split(' ')[0]
     
+    // Determine carrier and tracking URL
     let carrier = 'Freight'
     let trackingUrl = ''
     
@@ -144,30 +144,23 @@ The Cabinets For Contractors Team`
   const hasQuoteInfo = shipment.rl_quote_number || shipment.rl_quote_price || 
                        shipment.li_quote_price || shipment.quote_price || shipment.ps_quote_price
   
-  // Get shipping cost to display
   const shippingCost = getShippingCost(shipment)
   
   return (
     <div className={`shipment-row ${updating ? 'updating' : ''}`}>
       <div className="shipment-warehouse">
         <strong>{shipment.warehouse}</strong>
-        {/* Show shipping cost next to warehouse name */}
         {shippingCost > 0 && (
-          <span style={{ 
-            marginLeft: '8px', 
-            color: '#2e7d32', 
-            fontWeight: '600',
-            fontSize: '13px'
-          }}>
+          <span style={{ marginLeft: '8px', color: '#2e7d32', fontWeight: '600', fontSize: '13px' }}>
             — ${shippingCost.toFixed(2)}
           </span>
         )}
-        {shipment.weight && <span className="weight" style={{ marginLeft: '8px', color: '#666', fontSize: '12px' }}>{shipment.weight} lbs</span>}
+        {shipment.weight && <span className="weight">{shipment.weight} lbs</span>}
       </div>
       
       <div className="shipment-controls">
         <select 
-          value={shipment.status || 'pending'}
+          value={shipment.status || 'needs_order'}
           onChange={(e) => handleStatusChange(e.target.value)}
           className="status-select"
         >
@@ -186,7 +179,7 @@ The Cabinets For Contractors Team`
           ))}
         </select>
         
-        {/* Shipping button */}
+        {/* Shipping button - show for all shipments */}
         <button 
           className={`btn btn-sm ${hasQuoteInfo ? 'btn-quoted' : 'btn-quote'}`}
           onClick={() => onOpenShippingManager(shipment)}
