@@ -1,13 +1,13 @@
 /**
  * ShipmentRow.jsx
  * Display a single warehouse shipment with status, method, and actions
- * v5.9.3 - Based on working v5.8.4, correct backend status values, Li_Delivery, cost display
+ * v5.9.3 - Send tracking via B2BWave API (auto-emails customer)
  */
 
 import { useState } from 'react'
 import { API_URL } from '../config'
 
-// Backend expects these exact status values
+// Backend status values
 const STATUS_OPTIONS = [
   { value: 'needs_order', label: 'Pending' },
   { value: 'at_warehouse', label: 'At Warehouse' },
@@ -26,14 +26,6 @@ const METHOD_OPTIONS = [
   { value: 'LiDelivery', label: 'Li_Delivery' }
 ]
 
-// Get shipping cost for display
-const getShippingCost = (shipment) => {
-  return Number(shipment.rl_customer_price) || Number(shipment.li_customer_price) || 
-         Number(shipment.customer_price) || Number(shipment.ps_quote_price) ||
-         Number(shipment.rl_quote_price) || Number(shipment.li_quote_price) || 
-         Number(shipment.quote_price) || 0
-}
-
 const ShipmentRow = ({ 
   shipment, 
   order,
@@ -43,8 +35,10 @@ const ShipmentRow = ({
   const [updating, setUpdating] = useState(false)
   const [showTrackingInput, setShowTrackingInput] = useState(false)
   const [trackingNumber, setTrackingNumber] = useState(shipment.tracking_number || '')
+  const [sendStatus, setSendStatus] = useState(null) // 'sending', 'success', 'error'
   
-  const handleStatusChange = async (newStatus) => {
+  const handleStatusChange = async (e) => {
+    const newStatus = e.target.value
     setUpdating(true)
     try {
       await fetch(`${API_URL}/shipments/${shipment.shipment_id}?status=${newStatus}`, {
@@ -57,7 +51,8 @@ const ShipmentRow = ({
     setUpdating(false)
   }
   
-  const handleMethodChange = async (newMethod) => {
+  const handleMethodChange = async (e) => {
+    const newMethod = e.target.value
     setUpdating(true)
     try {
       await fetch(`${API_URL}/shipments/${shipment.shipment_id}?ship_method=${newMethod}`, {
@@ -75,7 +70,52 @@ const ShipmentRow = ({
     setUpdating(false)
   }
   
-  const handleSaveTracking = async () => {
+  // Send tracking via B2BWave API (auto-emails customer)
+  const handleSaveAndSendTracking = async () => {
+    if (!trackingNumber.trim()) return
+    
+    const orderId = order?.order_id || shipment.order_id
+    
+    setUpdating(true)
+    setSendStatus('sending')
+    
+    try {
+      // Call backend which calls B2BWave API with notify=true
+      const url = `${API_URL}/orders/${orderId}/send-tracking?tracking_number=${encodeURIComponent(trackingNumber)}&shipment_id=${shipment.shipment_id}`
+      
+      const response = await fetch(url, { method: 'POST' })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Failed to send tracking')
+      }
+      
+      setSendStatus('success')
+      
+      // Also update local shipment status
+      await fetch(`${API_URL}/shipments/${shipment.shipment_id}?status=shipped`, {
+        method: 'PATCH'
+      })
+      
+      if (onUpdate) onUpdate()
+      
+      // Hide input after success
+      setTimeout(() => {
+        setShowTrackingInput(false)
+        setSendStatus(null)
+      }, 2000)
+      
+    } catch (err) {
+      console.error('Failed to send tracking:', err)
+      setSendStatus('error')
+      alert('Failed to send tracking: ' + err.message)
+    }
+    
+    setUpdating(false)
+  }
+  
+  // Save tracking without sending email (just update database)
+  const handleSaveOnly = async () => {
     if (!trackingNumber.trim()) return
     
     setUpdating(true)
@@ -84,117 +124,96 @@ const ShipmentRow = ({
         method: 'PATCH'
       })
       
-      // Update status to shipped
       await fetch(`${API_URL}/shipments/${shipment.shipment_id}?status=shipped`, {
         method: 'PATCH'
       })
       
       if (onUpdate) onUpdate()
       setShowTrackingInput(false)
-      
-      // Open mailto with tracking info
-      sendTrackingEmail()
     } catch (err) {
       console.error('Failed to save tracking:', err)
+      alert('Failed to save tracking')
     }
     setUpdating(false)
   }
   
-  const sendTrackingEmail = () => {
-    const customerEmail = order?.email || ''
-    const customerName = order?.customer_name || 'Valued Customer'
-    const companyName = order?.company_name || customerName
-    const orderId = order?.order_id || shipment.order_id
-    const firstName = customerName.split(' ')[0]
+  // Get shipping cost to display
+  const getShippingCost = () => {
+    const cost = 
+      Number(shipment.rl_customer_price) ||
+      Number(shipment.li_customer_price) ||
+      Number(shipment.ps_quote_price) ||
+      Number(shipment.customer_price) ||
+      0
     
-    // Determine carrier and tracking URL
-    let carrier = 'Freight'
-    let trackingUrl = ''
-    
-    if (shipment.ship_method === 'LTL') {
-      carrier = 'RL Carriers'
-      trackingUrl = `https://www.rlcarriers.com/freight/shipping/shipment-tracing?pro=${trackingNumber}`
-    } else if (shipment.ship_method === 'Pirateship' || shipment.ship_method === 'BoxTruck') {
-      if (trackingNumber.startsWith('1Z')) {
-        carrier = 'UPS'
-        trackingUrl = `https://www.ups.com/track?tracknum=${trackingNumber}`
-      } else if (trackingNumber.length === 22 || trackingNumber.length === 26) {
-        carrier = 'USPS'
-        trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`
-      }
-    }
-    
-    const subject = `${companyName}, please see tracking information for order ${orderId}`
-    
-    const body = `Hey ${firstName},
-
-Thank you for your business! Your order ${orderId} has been shipped.
-
-${carrier} Tracking Number: ${trackingNumber}
-${trackingUrl ? `Track your shipment: ${trackingUrl}` : ''}
-
-Thank you for your business,
-The Cabinets For Contractors Team`
-    
-    const mailtoUrl = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    window.open(mailtoUrl, '_blank')
+    return cost > 0 ? `$${cost.toFixed(2)}` : ''
   }
+  
+  const shippingCost = getShippingCost()
   
   // Check if shipment has any quote/price info
   const hasQuoteInfo = shipment.rl_quote_number || shipment.rl_quote_price || 
-                       shipment.li_quote_price || shipment.quote_price || shipment.ps_quote_price
-  
-  const shippingCost = getShippingCost(shipment)
+                       shipment.li_quote_price || shipment.quote_price ||
+                       shipment.rl_customer_price || shipment.li_customer_price
+
+  // Should show track button? YES for all methods except Pickup and LiDelivery
+  const showTrackButton = shipment.ship_method !== 'Pickup' && shipment.ship_method !== 'LiDelivery'
   
   return (
     <div className={`shipment-row ${updating ? 'updating' : ''}`}>
       <div className="shipment-warehouse">
         <strong>{shipment.warehouse}</strong>
-        {shippingCost > 0 && (
-          <span style={{ marginLeft: '8px', color: '#2e7d32', fontWeight: '600', fontSize: '13px' }}>
-            — ${shippingCost.toFixed(2)}
+        {shippingCost && (
+          <span style={{ color: '#2e7d32', marginLeft: '8px' }}>
+            — {shippingCost}
           </span>
         )}
-        {shipment.weight && <span className="weight">{shipment.weight} lbs</span>}
+        {shipment.weight && <span className="weight"> ({shipment.weight} lbs)</span>}
       </div>
       
       <div className="shipment-controls">
+        {/* Status dropdown - uses backend values */}
         <select 
           value={shipment.status || 'needs_order'}
-          onChange={(e) => handleStatusChange(e.target.value)}
+          onChange={handleStatusChange}
           className="status-select"
+          style={{ minWidth: '110px' }}
         >
           {STATUS_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
         
+        {/* Method dropdown */}
         <select 
           value={shipment.ship_method || ''}
-          onChange={(e) => handleMethodChange(e.target.value)}
+          onChange={handleMethodChange}
           className="method-select"
+          style={{ minWidth: '100px' }}
         >
           {METHOD_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
         
-        {/* Shipping button - show for all shipments */}
+        {/* Shipping button - always show */}
         <button 
           className={`btn btn-sm ${hasQuoteInfo ? 'btn-quoted' : 'btn-quote'}`}
           onClick={() => onOpenShippingManager(shipment)}
+          style={hasQuoteInfo ? { backgroundColor: '#4caf50', color: '#fff' } : {}}
         >
           Shipping
         </button>
         
-        {/* Tracking input/display */}
-        {shipment.ship_method !== 'Pickup' && shipment.ship_method !== 'LiDelivery' && (
+        {/* Tracking input/display - show for all except Pickup/LiDelivery */}
+        {showTrackButton && (
           <>
             {shipment.tracking_number ? (
               <button 
                 className="btn btn-sm btn-tracking"
                 onClick={() => setShowTrackingInput(true)}
                 title={shipment.tracking_number}
+                style={{ backgroundColor: '#2196f3', color: '#fff' }}
               >
                 📦 {shipment.tracking_number.slice(-6)}
               </button>
@@ -212,18 +231,57 @@ The Cabinets For Contractors Team`
       
       {/* Tracking input row */}
       {showTrackingInput && (
-        <div className="tracking-input-row">
+        <div className="tracking-input-row" style={{ 
+          marginTop: '8px', 
+          display: 'flex', 
+          gap: '8px', 
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
           <input 
             type="text"
             value={trackingNumber}
             onChange={(e) => setTrackingNumber(e.target.value)}
             placeholder="Enter tracking/PRO number..."
             autoFocus
+            style={{ flex: 1, padding: '6px', minWidth: '200px' }}
           />
-          <button className="btn btn-sm btn-success" onClick={handleSaveTracking}>
-            Save & Email
+          
+          {/* Save & Email button - sends via B2BWave */}
+          <button 
+            className="btn btn-sm" 
+            onClick={handleSaveAndSendTracking}
+            disabled={updating || sendStatus === 'sending'}
+            style={{ 
+              backgroundColor: sendStatus === 'success' ? '#4caf50' : '#1976d2', 
+              color: '#fff',
+              minWidth: '120px'
+            }}
+          >
+            {sendStatus === 'sending' ? '📧 Sending...' : 
+             sendStatus === 'success' ? '✓ Sent!' : 
+             '📧 Save & Email'}
           </button>
-          <button className="btn btn-sm" onClick={() => setShowTrackingInput(false)}>
+          
+          {/* Save Only button */}
+          <button 
+            className="btn btn-sm" 
+            onClick={handleSaveOnly}
+            disabled={updating}
+            style={{ backgroundColor: '#757575', color: '#fff' }}
+            title="Save tracking without emailing customer"
+          >
+            Save Only
+          </button>
+          
+          {/* Cancel */}
+          <button 
+            className="btn btn-sm" 
+            onClick={() => {
+              setShowTrackingInput(false)
+              setSendStatus(null)
+            }}
+          >
             ✕
           </button>
         </div>
