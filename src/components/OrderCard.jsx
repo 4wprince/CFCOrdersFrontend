@@ -1,6 +1,7 @@
 /**
  * OrderCard.jsx
- * v5.9.3 - Uses correct /set-status endpoint, fixed header layout
+ * Display a single order with status, customer info, shipments
+ * v5.11.0 - Alert background colors + clock icon for shipped orders
  */
 
 import { useState } from 'react'
@@ -27,6 +28,34 @@ const STATUS_OPTIONS = [
   { value: 'complete', label: 'Complete' }
 ]
 
+// Shipment-level status colors for warehouse pills
+const SHIPMENT_STATUS_COLORS = {
+  'needs_order': { color: '#f44336', label: 'Need to Order' },      // Red
+  'at_warehouse': { color: '#9c27b0', label: 'At Warehouse' },      // Purple
+  'needs_bol': { color: '#00bcd4', label: 'Need BOL' },             // Cyan
+  'ready_ship': { color: '#4caf50', label: 'Ready to Ship' },       // Green
+  'shipped': { color: '#607d8b', label: 'Shipped' },                // Blue-gray
+  'delivered': { color: '#9e9e9e', label: 'Delivered' }             // Gray
+}
+
+// Alert background colors
+const ALERT_BACKGROUNDS = {
+  'warning': '#FFFACD',   // Light yellow
+  'critical': '#FFB6C1'   // Light pink/red
+}
+
+// Alert type labels
+const ALERT_TYPE_LABELS = {
+  'out_of_stock': '⚠️ OUT OF STOCK',
+  'backorder': '⚠️ BACKORDER',
+  'inventory_issue': '⚠️ INVENTORY ISSUE',
+  'no_action_after_payment': '⏰ NO ACTION - PAID',
+  'shipped_no_payment': '💰 SHIPPED - NO PAYMENT',
+  'no_response': '📧 NO WAREHOUSE RESPONSE',
+  'not_available': '⚠️ NOT AVAILABLE',
+  'discontinued': '⚠️ DISCONTINUED'
+}
+
 const getAgeLabel = (orderDate) => {
   if (!orderDate) return ''
   const created = new Date(orderDate)
@@ -36,51 +65,75 @@ const getAgeLabel = (orderDate) => {
   const diffDays = Math.floor((today - created) / (1000 * 60 * 60 * 24))
   if (diffDays <= 0) return 'Today'
   if (diffDays === 1) return '1 Day'
-  return diffDays + ' Days'
-}
-
-const calculateShippingTotals = (shipments) => {
-  if (!shipments || shipments.length === 0) return { customerCharge: 0, cost: 0, profit: 0 }
-  let customerCharge = 0
-  let cost = 0
-  shipments.forEach(s => {
-    const custPrice = Number(s.rl_customer_price) || Number(s.li_customer_price) || Number(s.customer_price) || Number(s.ps_quote_price) || 0
-    const ourCost = Number(s.rl_quote_price) || Number(s.li_quote_price) || Number(s.quote_price) || Number(s.ps_quote_price) || 0
-    customerCharge += custPrice
-    cost += ourCost
-  })
-  return { customerCharge, cost, profit: customerCharge - cost }
-}
-
-// Clean up AI summary - remove double newlines, clean markdown
-const formatAISummary = (summary) => {
-  if (!summary) return ''
-  return summary
-    .replace(/\r\n/g, '\n')           // Normalize line endings
-    .replace(/\n{2,}/g, '\n')          // Collapse multiple newlines to single
-    .replace(/^\s*[\r\n]/gm, '')       // Remove blank lines
-    .replace(/\*\*/g, '')              // Remove bold markers
-    .trim()
+  return `${diffDays} Days`
 }
 
 const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => {
+  if (!order) return null
+  
   const [isUpdating, setIsUpdating] = useState(false)
   const [isEditingNotes, setIsEditingNotes] = useState(false)
   const [notes, setNotes] = useState(order?.notes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
-
-  if (!order) return null
-
+  
   const status = STATUS_MAP[order.current_status] || STATUS_MAP['needs_payment_link']
-  const customerName = order.company_name || order.customer_name || 'Unknown'
-  const location = order.city && order.state ? order.city + ', ' + order.state : ''
-  const orderDate = order.order_date ? new Date(order.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
-  const warehouses = [order.warehouse_1, order.warehouse_2, order.warehouse_3, order.warehouse_4].filter(Boolean)
-  const orderTotal = parseFloat(order.order_total || 0)
-  const totalDisplay = orderTotal > 0 ? '$' + orderTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : ''
-  const shippingTotals = calculateShippingTotals(order.shipments)
 
-  // Use the correct backend endpoint: /orders/{id}/set-status?status=X
+  // Customer info
+  const customerName = order.company_name || order.customer_name || 'Unknown'
+  
+  // Format address: City, State ZIP on one line
+  const cityStateZip = [
+    order.city,
+    order.state ? `${order.state}${order.zip_code ? ' ' + order.zip_code : ''}` : order.zip_code
+  ].filter(Boolean).join(', ')
+  
+  // Street address (separate line)
+  const streetAddress = order.street || ''
+
+  // Format order date
+  const orderDate = order.order_date
+    ? new Date(order.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : ''
+
+  // Get warehouses
+  const warehouses = [
+    order.warehouse_1,
+    order.warehouse_2,
+    order.warehouse_3,
+    order.warehouse_4
+  ].filter(Boolean)
+
+  // Format order total
+  const orderTotal = parseFloat(order.order_total || 0)
+  const totalDisplay = orderTotal > 0
+    ? `$${orderTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+    : ''
+
+  // Calculate shipping totals
+  const shippingTotals = (order.shipments || []).reduce(
+    (acc, shipment) => {
+      const customerCharge =
+        Number(shipment.rl_customer_price) ||
+        Number(shipment.li_customer_price) ||
+        Number(shipment.customer_price) ||
+        Number(shipment.ps_quote_price) ||
+        0
+
+      const cost =
+        Number(shipment.rl_quote_price) ||
+        Number(shipment.li_quote_price) ||
+        Number(shipment.quote_price) ||
+        Number(shipment.ps_quote_price) ||
+        0
+
+      acc.customerCharge += customerCharge
+      acc.profit += customerCharge - cost
+      return acc
+    },
+    { customerCharge: 0, profit: 0 }
+  )
+
+  // Handle status change - use set-status endpoint
   const handleStatusChange = async (e) => {
     e.stopPropagation()
     const newStatus = e.target.value
@@ -88,25 +141,31 @@ const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => 
 
     setIsUpdating(true)
     try {
-      const res = await fetch(`${API_URL}/orders/${order.order_id}/set-status?status=${newStatus}&source=web_ui`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' }
-      })
+      const res = await fetch(
+        `${API_URL}/orders/${order.order_id}/set-status?status=${newStatus}&source=web_ui`,
+        { method: 'PATCH' }
+      )
 
       if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(errorText)
+        const msg = await res.text()
+        throw new Error(msg)
       }
 
       if (onUpdate) onUpdate()
     } catch (err) {
-      console.error('Status update error:', err)
       alert('Status update failed: ' + err.message)
     } finally {
       setIsUpdating(false)
     }
   }
 
+  // Format AI summary - clean up
+  const formatAISummary = (summary) => {
+    if (!summary) return ''
+    return summary.replace(/\n{2,}/g, '\n').trim()
+  }
+
+  // Save notes
   const handleSaveNotes = async () => {
     setIsSavingNotes(true)
     try {
@@ -116,7 +175,6 @@ const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => 
         body: JSON.stringify({ notes })
       })
       if (!res.ok) throw new Error('Failed to save notes')
-      await fetch(`${API_URL}/orders/${order.order_id}/generate-summary?force=true`, { method: 'POST' })
       setIsEditingNotes(false)
       if (onUpdate) onUpdate()
     } catch (err) {
@@ -126,40 +184,58 @@ const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => 
     }
   }
 
-  const containerBase = { borderRadius: '8px', padding: '8px 10px', margin: '6px 8px', fontSize: '13px', lineHeight: '1.4' }
+  // Calculate days until archive for shipped orders
+  const getShippedDaysRemaining = () => {
+    const shippedShipments = (order.shipments || []).filter(s => s.status === 'shipped' && s.clock_started_at)
+    if (shippedShipments.length === 0) return null
+    
+    // Get the most recent clock start
+    const latestClock = shippedShipments.reduce((latest, s) => {
+      const clockDate = new Date(s.clock_started_at)
+      return clockDate > latest ? clockDate : latest
+    }, new Date(0))
+    
+    const daysSince = Math.floor((new Date() - latestClock) / (1000 * 60 * 60 * 24))
+    return Math.max(0, 5 - daysSince)
+  }
+
+  const daysRemaining = getShippedDaysRemaining()
+  const alertBackground = order.alert_level ? ALERT_BACKGROUNDS[order.alert_level] : null
+  const alertLabel = order.alert_type ? ALERT_TYPE_LABELS[order.alert_type] : null
 
   return (
-    <div className="order-card" style={{ borderLeftColor: status.color }}>
-      {/* Header - Fixed layout: 5px | Order# | Date | Dropdown | Days | 5px */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px 5px',
-        gap: '8px',
-        borderBottom: '1px solid #eee'
-      }}>
-        {/* Order ID - left side */}
-        <div 
-          onClick={() => onOpenDetail && onOpenDetail(order)}
-          style={{ 
-            fontWeight: '700',
-            fontSize: '14px',
-            color: '#1976d2',
-            cursor: 'pointer',
-            minWidth: '60px'
-          }}
-        >
+    <div 
+      className="order-card" 
+      style={{ 
+        borderLeftColor: status.color,
+        backgroundColor: alertBackground || undefined
+      }}
+    >
+      {/* Alert Banner */}
+      {alertLabel && (
+        <div style={{
+          backgroundColor: order.alert_level === 'critical' ? '#d32f2f' : '#f57c00',
+          color: 'white',
+          padding: '4px 12px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          marginBottom: '8px',
+          borderRadius: '4px'
+        }}>
+          {alertLabel}
+        </div>
+      )}
+      
+      {/* Header */}
+      <div className="order-header">
+        <div className="order-id" onClick={() => onOpenDetail(order)}>
           #{order.order_id}
         </div>
+        {orderDate && <div className="order-date">{orderDate}</div>}
 
-        {/* Date */}
-        <div style={{ color: '#666', fontSize: '13px', minWidth: '50px' }}>
-          {orderDate}
-        </div>
-
-        {/* Status Dropdown - center, flex grow */}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <div className="order-header-right">
           <select
+            className="status-dropdown"
             value={order.current_status || 'needs_payment_link'}
             onChange={handleStatusChange}
             onClick={(e) => e.stopPropagation()}
@@ -167,70 +243,107 @@ const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => 
             style={{
               backgroundColor: status.color + '20',
               color: status.color,
-              borderColor: status.color,
-              padding: '4px 8px',
-              borderRadius: '12px',
-              border: '2px solid',
-              fontWeight: '600',
-              fontSize: '12px',
-              cursor: 'pointer',
-              minWidth: '130px'
+              borderColor: status.color
             }}
           >
-            {STATUS_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            {STATUS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
-        </div>
 
-        {/* Days - right side */}
-        <div style={{
-          backgroundColor: '#333',
-          color: 'white',
-          padding: '4px 10px',
-          borderRadius: '12px',
-          fontSize: '12px',
-          fontWeight: '600',
-          minWidth: '50px',
-          textAlign: 'center'
-        }}>
-          {getAgeLabel(order.order_date)}
+          <span className="order-age-pill">
+            {getAgeLabel(order.order_date)}
+          </span>
         </div>
       </div>
 
       {/* Body */}
-      <div className="order-body" onClick={() => onOpenDetail && onOpenDetail(order)} style={{ padding: '8px', cursor: 'pointer' }}>
+      <div className="order-body" onClick={() => onOpenDetail(order)}>
         <div className="customer-info">
-          <div style={{ fontWeight: '600', fontSize: '14px' }}>{customerName}</div>
-          {location && <div style={{ color: '#666', fontSize: '12px' }}>{location}</div>}
+          <div className="customer-name">{customerName}</div>
+          {cityStateZip && <div className="customer-location">{cityStateZip}</div>}
+          {streetAddress && (
+            <div className="customer-street" style={{ fontSize: '12px', color: '#666' }}>
+              {streetAddress}
+            </div>
+          )}
         </div>
-        <div className="order-financials" style={{ marginTop: '4px' }}>
-          {totalDisplay && <div style={{ fontSize: '13px' }}>Order: {totalDisplay}</div>}
-          {shippingTotals.customerCharge > 0 && (
-            <div style={{ fontSize: '12px', color: '#666' }}>
-              Ship: ${shippingTotals.customerCharge.toFixed(2)}
+
+        <div className="order-financials">
+          {totalDisplay && <div className="order-total">Order: {totalDisplay}</div>}
+
+          {shippingTotals && shippingTotals.customerCharge > 0 && (
+            <div className="shipping-summary">
+              <span className="ship-charge">Ship: ${shippingTotals.customerCharge.toFixed(2)}</span>
               {shippingTotals.profit !== 0 && (
-                <span style={{ marginLeft: '4px', color: shippingTotals.profit >= 0 ? '#4caf50' : '#f44336' }}>
+                <span className={`ship-profit ${shippingTotals.profit >= 0 ? 'positive' : 'negative'}`}>
                   ({shippingTotals.profit >= 0 ? '+' : ''}${shippingTotals.profit.toFixed(2)})
                 </span>
               )}
             </div>
           )}
-          {totalDisplay && shippingTotals.customerCharge > 0 && (
-            <div style={{ fontWeight: '600', fontSize: '13px' }}>Total: ${(orderTotal + shippingTotals.customerCharge).toFixed(2)}</div>
+
+          {totalDisplay && shippingTotals && shippingTotals.customerCharge > 0 && (
+            <div className="grand-total">
+              Total: ${(orderTotal + shippingTotals.customerCharge).toFixed(2)}
+            </div>
           )}
         </div>
+
         {warehouses.length > 0 && (
-          <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-            {warehouses.map((wh, i) => (
-              <span key={i} style={{ backgroundColor: '#e3f2fd', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>{wh}</span>
-            ))}
+          <div className="warehouses">
+            {warehouses.map((wh, i) => {
+              // Find the shipment for this warehouse to get its status
+              const shipment = order.shipments?.find(s => s.warehouse === wh)
+              const shipmentStatus = shipment?.status || 'needs_order'
+              const statusInfo = SHIPMENT_STATUS_COLORS[shipmentStatus] || SHIPMENT_STATUS_COLORS['needs_order']
+              
+              // Calculate days remaining for this shipment's clock
+              let clockDays = null
+              if (shipment?.status === 'shipped' && shipment?.clock_started_at) {
+                const clockDate = new Date(shipment.clock_started_at)
+                const daysSince = Math.floor((new Date() - clockDate) / (1000 * 60 * 60 * 24))
+                clockDays = Math.max(0, 5 - daysSince)
+              }
+              
+              return (
+                <span 
+                  key={i} 
+                  className="warehouse-tag"
+                  title={statusInfo.label + (clockDays !== null ? ` (${clockDays} days to archive)` : '')}
+                  style={{
+                    backgroundColor: statusInfo.color + '20',
+                    color: statusInfo.color,
+                    border: `1px solid ${statusInfo.color}`,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {wh}
+                  {clockDays !== null && (
+                    <span style={{ 
+                      fontSize: '10px',
+                      color: clockDays <= 1 ? '#4caf50' : clockDays <= 3 ? '#ff9800' : '#607d8b'
+                    }}>
+                      ⏱{clockDays}d
+                    </span>
+                  )}
+                </span>
+              )
+            })}
           </div>
         )}
       </div>
 
       {/* Shipments */}
       {order.shipments && order.shipments.length > 0 && (
-        <div style={{ borderTop: '1px solid #eee', padding: '4px 0' }}>
-          {order.shipments.map((shipment, i) => (
+        <div className="order-shipments">
+          {(order.shipments || []).map((shipment, i) =>
             <ShipmentRow
               key={shipment.shipment_id || i}
               shipment={shipment}
@@ -238,63 +351,141 @@ const OrderCard = ({ order, onOpenDetail, onOpenShippingManager, onUpdate }) => 
               onOpenShippingManager={onOpenShippingManager}
               onUpdate={onUpdate}
             />
-          ))}
+          )}
         </div>
       )}
 
-      {/* Notes & AI Summary Section */}
-      <div style={{ borderTop: '1px solid #eee' }}>
-        {/* Customer Comments - Yellow */}
-        {order.comments && (
-          <div style={{ ...containerBase, backgroundColor: '#fffde7', border: '1px solid #f9a825' }}>
-            <strong>Customer:</strong> {order.comments}
-          </div>
-        )}
+      {/* Comments - styled box */}
+      {order.comments && (
+        <div style={{ 
+          backgroundColor: '#fff3e0', 
+          padding: '8px 12px', 
+          borderRadius: '4px',
+          marginTop: '8px',
+          borderLeft: '3px solid #ff9800'
+        }}>
+          <strong style={{ color: '#e65100' }}>Customer: </strong>
+          <span>{order.comments}</span>
+        </div>
+      )}
 
-        {/* Internal Notes - Purple */}
-        <div style={{ ...containerBase, backgroundColor: '#f3e5f5', border: '1px solid #9c27b0' }}>
-          {isEditingNotes ? (
-            <div onClick={(e) => e.stopPropagation()}>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add internal notes..."
-                rows={3}
-                style={{ width: '100%', marginBottom: '8px', padding: '6px', borderRadius: '4px', border: '1px solid #9c27b0', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
-              />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={handleSaveNotes} disabled={isSavingNotes} style={{ backgroundColor: '#4caf50', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-                  {isSavingNotes ? 'Saving...' : 'Save'}
-                </button>
-                <button onClick={() => { setIsEditingNotes(false); setNotes(order.notes || ''); }} disabled={isSavingNotes} style={{ backgroundColor: '#9e9e9e', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-                  Cancel
+      {/* Internal Notes - Purple, Editable */}
+      <div style={{ 
+        backgroundColor: '#f3e5f5', 
+        padding: '8px 12px', 
+        borderRadius: '4px',
+        marginTop: '8px',
+        borderLeft: '3px solid #9c27b0'
+      }}>
+        {isEditingNotes ? (
+          <div onClick={(e) => e.stopPropagation()}>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add internal notes..."
+              rows={3}
+              style={{ 
+                width: '100%', 
+                marginBottom: '8px', 
+                padding: '6px', 
+                borderRadius: '4px', 
+                border: '1px solid #9c27b0', 
+                fontSize: '13px', 
+                fontFamily: 'inherit', 
+                resize: 'vertical', 
+                boxSizing: 'border-box' 
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={handleSaveNotes} 
+                disabled={isSavingNotes} 
+                style={{ 
+                  backgroundColor: '#4caf50', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '4px 12px', 
+                  borderRadius: '4px', 
+                  cursor: 'pointer', 
+                  fontSize: '12px' 
+                }}
+              >
+                {isSavingNotes ? 'Saving...' : 'Save'}
+              </button>
+              <button 
+                onClick={() => { setIsEditingNotes(false); setNotes(order.notes || ''); }} 
+                disabled={isSavingNotes} 
+                style={{ 
+                  backgroundColor: '#9e9e9e', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '4px 12px', 
+                  borderRadius: '4px', 
+                  cursor: 'pointer', 
+                  fontSize: '12px' 
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div onClick={(e) => e.stopPropagation()}>
+            {order.notes ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                <div><strong style={{ color: '#7b1fa2' }}>Notes:</strong> {order.notes}</div>
+                <button 
+                  onClick={() => setIsEditingNotes(true)} 
+                  style={{ 
+                    backgroundColor: '#9c27b0', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px', 
+                    cursor: 'pointer', 
+                    fontSize: '11px', 
+                    flexShrink: 0 
+                  }}
+                >
+                  Edit
                 </button>
               </div>
-            </div>
-          ) : (
-            <div onClick={(e) => e.stopPropagation()}>
-              {order.notes ? (
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <div><strong>Notes:</strong> {order.notes}</div>
-                  <button onClick={() => setIsEditingNotes(true)} style={{ backgroundColor: '#2196f3', color: 'white', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', flexShrink: 0 }}>Edit</button>
-                </div>
-              ) : (
-                <button onClick={() => setIsEditingNotes(true)} style={{ backgroundColor: '#2196f3', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>+ Add Note</button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* AI Summary - Green */}
-        {order.ai_summary && (
-          <div style={{ ...containerBase, backgroundColor: '#e8f5e9', border: '1px solid #4caf50' }}>
-            <strong>AI Summary:</strong>
-            <div style={{ marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '12px' }}>
-              {formatAISummary(order.ai_summary)}
-            </div>
+            ) : (
+              <button 
+                onClick={() => setIsEditingNotes(true)} 
+                style={{ 
+                  backgroundColor: '#9c27b0', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '4px 12px', 
+                  borderRadius: '4px', 
+                  cursor: 'pointer', 
+                  fontSize: '12px' 
+                }}
+              >
+                + Add Note
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* AI Summary */}
+      {order.ai_summary && (
+        <div style={{ 
+          backgroundColor: '#f5f5f5', 
+          padding: '8px 12px', 
+          borderRadius: '4px',
+          marginTop: '8px',
+          borderLeft: '3px solid #667eea',
+          fontSize: '13px'
+        }}>
+          <strong style={{ color: '#667eea' }}>AI Summary:</strong>
+          <div style={{ whiteSpace: 'pre-line', marginTop: '4px' }}>
+            {formatAISummary(order.ai_summary)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
