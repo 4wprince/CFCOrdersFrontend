@@ -191,8 +191,8 @@ function App() {
       })
       const data = await res.json()
       
-      if (data.comprehensive_summary) {
-        setComprehensiveSummary(data.comprehensive_summary)
+      if (data.summary) {
+        setComprehensiveSummary(data.summary)
       } else if (data.detail) {
         setComprehensiveSummary(`Error: ${data.detail}`)
       }
