@@ -1,5 +1,8 @@
 /**
- * ShippingManager.jsx v5.9.2
+ * ShippingManager.jsx v5.9.3
+ * Fix: removed onUpdate() from handleMethodChange to prevent modal blink
+ * (loadOrders sets loading=true which kills the modal via App.jsx early return)
+ * Orders refresh when modal closes via closeShippingManager → loadOrders()
  */
 
 import { useState, useEffect } from 'react'
@@ -47,7 +50,9 @@ const ShippingManager = ({ shipment, orderId, customerInfo, onClose, onUpdate })
   
   const handleMethodChange = async (newMethod) => {
     setMethod(newMethod)
-    try { await fetch(`${API_URL}/shipments/${shipment.shipment_id}?ship_method=${newMethod}`, { method: 'PATCH' }); if (onUpdate) onUpdate() }
+    // Save method to backend (don't call onUpdate here — it triggers loadOrders
+    // which sets loading=true in App.jsx, causing the modal to disappear briefly)
+    try { await fetch(`${API_URL}/shipments/${shipment.shipment_id}?ship_method=${newMethod}`, { method: 'PATCH' }) }
     catch (err) { console.error('Failed to update shipping method:', err) }
     if (newMethod === 'LTL') setView('rl')
     else if (newMethod === 'Pirateship') setView('pirateship')
@@ -85,7 +90,7 @@ const ShippingManager = ({ shipment, orderId, customerInfo, onClose, onUpdate })
       if (psQuoteUrl) params.append('ps_quote_url', psQuoteUrl)
       if (psQuotePrice) params.append('ps_quote_price', psQuotePrice)
       await fetch(`${API_URL}/shipments/${shipment.shipment_id}?${params.toString()}`, { method: 'PATCH' })
-      setPsSaved(true); if (onUpdate) onUpdate()
+      setPsSaved(true)
     } catch (err) { console.error('Failed to save Pirateship quote:', err) }
   }
 
