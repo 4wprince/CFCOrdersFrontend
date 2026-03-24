@@ -1,13 +1,6 @@
 /**
  * App.jsx - Main Application
- * v5.9.8 - Comprehensive AI Summary in Order Popout
- * 
- * Orchestrates:
- * - Login/auth
- * - Order loading
- * - Component rendering
- * - Modal management
- * - Comprehensive AI Summary
+ * v5.10.0 - No login required, X-Admin-Token header fix
  */
 
 import { useState, useEffect } from 'react'
@@ -16,9 +9,10 @@ import OrderCard from './components/OrderCard'
 import ShippingManager from './components/ShippingManager'
 import OrderComments from './components/OrderComments'
 
-import { API_URL, APP_PASSWORD } from './config'
+import { API_URL } from './config'
 
-// Status mapping for display
+const ADMIN_TOKEN = 'CFC2026'
+
 const STATUS_MAP = {
   'needs_payment_link': { label: '1-Need Invoice', class: 'needs-invoice' },
   'awaiting_payment': { label: '2-Awaiting Pay', class: 'awaiting-pay' },
@@ -40,62 +34,29 @@ const STATUS_OPTIONS = [
 ]
 
 function App() {
-  // Auth state
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
-  
   // Data state
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   // Filter state
   const [statusFilter, setStatusFilter] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
-  
+
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [shippingModal, setShippingModal] = useState(null)
-  
+
   // Comprehensive AI Summary state
   const [comprehensiveSummary, setComprehensiveSummary] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(false)
-  
-  // Check saved login
+
+  // Load orders on mount
   useEffect(() => {
-    const saved = localStorage.getItem('cfc_logged_in')
-    if (saved === 'true') {
-      setIsLoggedIn(true)
-    }
+    loadOrders()
   }, [])
-  
-  // Load data when logged in
-  useEffect(() => {
-    if (isLoggedIn) {
-      loadOrders()
-    }
-  }, [isLoggedIn])
-  
-  // === AUTH ===
-  
-  const handleLogin = (e) => {
-    e.preventDefault()
-    if (password === APP_PASSWORD) {
-      setIsLoggedIn(true)
-      localStorage.setItem('cfc_logged_in', 'true')
-      setLoginError('')
-    } else {
-      setLoginError('Incorrect password')
-    }
-  }
-  
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-    localStorage.removeItem('cfc_logged_in')
-  }
-  
+
   // === DATA LOADING ===
-  
+
   const loadOrders = async () => {
     setLoading(true)
     try {
@@ -109,33 +70,33 @@ function App() {
     }
     setLoading(false)
   }
-  
+
   // === FILTERING ===
-  
+
   const getFilteredOrders = () => {
     let filtered = orders
-    
-    // Filter by status
+
     if (statusFilter) {
       filtered = filtered.filter(o => o.current_status === statusFilter)
     } else if (showArchived) {
-      // Show ONLY complete/archived orders
       filtered = filtered.filter(o => o.current_status === 'complete')
     } else {
-      // Hide complete orders (show active only)
       filtered = filtered.filter(o => o.current_status !== 'complete')
     }
-    
+
     return filtered
   }
-  
+
   // === STATUS UPDATES ===
-  
+
   const updateOrderStatus = async (orderId, field, value) => {
     try {
       await fetch(`${API_URL}/orders/${orderId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': ADMIN_TOKEN
+        },
         body: JSON.stringify({ [field]: value })
       })
       loadOrders()
@@ -143,19 +104,19 @@ function App() {
       console.error('Failed to update order:', err)
     }
   }
-  
+
   // === MODALS ===
-  
+
   const openOrderDetail = (order) => {
     setSelectedOrder(order)
-    setComprehensiveSummary('') // Reset summary when opening new order
+    setComprehensiveSummary('')
   }
-  
+
   const closeOrderDetail = () => {
     setSelectedOrder(null)
     setComprehensiveSummary('')
   }
-  
+
   const openShippingManager = (shipment, order) => {
     setShippingModal({
       shipment,
@@ -171,26 +132,26 @@ function App() {
       }
     })
   }
-  
+
   const closeShippingManager = () => {
     setShippingModal(null)
     loadOrders()
   }
-  
+
   // === COMPREHENSIVE AI SUMMARY ===
-  
+
   const generateComprehensiveSummary = async () => {
     if (!selectedOrder) return
-    
+
     setSummaryLoading(true)
     setComprehensiveSummary('')
-    
+
     try {
       const res = await fetch(`${API_URL}/orders/${selectedOrder.order_id}/comprehensive-summary`, {
         method: 'POST'
       })
       const data = await res.json()
-      
+
       if (data.summary) {
         setComprehensiveSummary(data.summary)
       } else if (data.detail) {
@@ -200,15 +161,16 @@ function App() {
       console.error('Failed to generate summary:', err)
       setComprehensiveSummary('Failed to generate summary. Please try again.')
     }
-    
+
     setSummaryLoading(false)
   }
-  
+
   // === HELPER: Format Address ===
+
   const formatAddress = (order) => {
     const parts = []
     if (order.street) parts.push(order.street)
-    
+
     const cityStateZip = []
     if (order.city) cityStateZip.push(order.city)
     if (order.state) {
@@ -220,44 +182,19 @@ function App() {
     } else if (order.zip_code) {
       cityStateZip.push(order.zip_code)
     }
-    
+
     if (cityStateZip.length > 0) {
       parts.push(cityStateZip.join(', '))
     }
-    
+
     return parts.join(', ')
   }
-  
-  // === RENDER: LOGIN ===
-  
-  if (!isLoggedIn) {
-    return (
-      <div className="login-container">
-        <form onSubmit={handleLogin} className="login-form">
-          <h2>CFC Orders</h2>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-          />
-          <button type="submit">Login</button>
-          {loginError && <p className="error">{loginError}</p>}
-        </form>
-      </div>
-    )
-  }
 
-  // Gate main app render until orders are ready
-  if (loading) {
+  // === RENDER ===
+
+  if (loading && orders.length === 0) {
     return <div className="loading">Loading orders...</div>
   }
-
-  if (!Array.isArray(orders)) {
-    return <div className="loading">Loading orders...</div>
-  }
-
-  // === RENDER: MAIN APP ===
 
   const filteredOrders = getFilteredOrders()
 
@@ -270,24 +207,21 @@ function App() {
           <button onClick={loadOrders} disabled={loading}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
-          <button onClick={handleLogout}>Logout</button>
         </div>
       </header>
-      
+
       {/* Status Filter Bar */}
-      <StatusBar 
+      <StatusBar
         orders={orders}
         activeFilter={statusFilter}
         onFilterChange={setStatusFilter}
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
       />
-      
+
       {/* Orders Grid */}
       <main className="orders-grid">
         {loading ? (
-          <div className="loading">Loading orders...</div>
-        ) : !Array.isArray(filteredOrders) ? (
           <div className="loading">Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
           <div className="empty">No orders found</div>
@@ -303,25 +237,24 @@ function App() {
           ))
         )}
       </main>
-      
-      {/* Order Detail Modal - Redesigned */}
+
+      {/* Order Detail Modal */}
       {selectedOrder && (
         <div className="modal-overlay" onClick={closeOrderDetail}>
-          <div 
-            className="modal order-detail-modal" 
-            onClick={(e) => e.stopPropagation()} 
-            style={{ 
-              maxHeight: '90vh', 
-              display: 'flex', 
+          <div
+            className="modal order-detail-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxHeight: '90vh',
+              display: 'flex',
               flexDirection: 'column',
               width: '420px',
               maxWidth: '95vw'
             }}
           >
-            {/* Header: Order # and Total */}
-            <div className="modal-header" style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div className="modal-header" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               padding: '16px 20px',
               backgroundColor: '#f8f9fa',
@@ -332,8 +265,8 @@ function App() {
                 <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#28a745' }}>
                   ${parseFloat(selectedOrder.order_total || 0).toFixed(2)}
                 </span>
-                <button 
-                  className="modal-close" 
+                <button
+                  className="modal-close"
                   onClick={closeOrderDetail}
                   style={{
                     width: '28px',
@@ -350,33 +283,29 @@ function App() {
                 >×</button>
               </div>
             </div>
-            
-            <div className="modal-body" style={{ 
-              flex: 1, 
-              display: 'flex', 
-              flexDirection: 'column', 
+
+            <div className="modal-body" style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
               overflow: 'hidden',
               padding: '16px'
             }}>
-              {/* Order Details Section */}
-              <div style={{ 
-                border: '1px solid #e0e0e0', 
-                borderRadius: '6px', 
+              <div style={{
+                border: '1px solid #e0e0e0',
+                borderRadius: '6px',
                 padding: '12px 14px',
                 marginBottom: '12px',
                 backgroundColor: '#fff'
               }}>
-                {/* Row 1: Order Details - Company Name */}
                 <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '4px' }}>
                   Order Details - <span style={{ color: '#333', fontWeight: 'normal' }}>{selectedOrder.company_name || selectedOrder.customer_name}</span>
                 </div>
-                
-                {/* Row 2: Address */}
+
                 <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
                   {formatAddress(selectedOrder)}
                 </div>
-                
-                {/* Row 3: Date | Days Open */}
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ fontSize: '13px', color: '#333' }}>
                     Date: {new Date(selectedOrder.order_date).toLocaleDateString()}
@@ -385,8 +314,7 @@ function App() {
                     Days Open: <strong>{selectedOrder.days_open}</strong>
                   </span>
                 </div>
-                
-                {/* Row 4: Status | Generate AI Summary Button */}
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '13px', color: '#333' }}>
                     Status: {STATUS_MAP[selectedOrder.current_status]?.label || selectedOrder.current_status}
@@ -409,18 +337,16 @@ function App() {
                   </button>
                 </div>
               </div>
-              
-              {/* AI Analysis Section */}
+
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '250px' }}>
                 <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>
                   AI Analysis
                 </h3>
-                
-                {/* Summary Content Area */}
-                <div style={{ 
-                  flex: 1, 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '6px', 
+
+                <div style={{
+                  flex: 1,
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '6px',
                   padding: '14px',
                   overflow: 'auto',
                   minHeight: '220px'
@@ -428,9 +354,9 @@ function App() {
                   {summaryLoading ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ 
-                          width: '36px', 
-                          height: '36px', 
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
                           border: '3px solid #e0e0e0',
                           borderTop: '3px solid #28a745',
                           borderRadius: '50%',
@@ -445,11 +371,11 @@ function App() {
                       {comprehensiveSummary}
                     </div>
                   ) : (
-                    <div style={{ 
-                      display: 'flex', 
+                    <div style={{
+                      display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       height: '100%',
                       color: '#999'
                     }}>
@@ -466,7 +392,7 @@ function App() {
           </div>
         </div>
       )}
-      
+
       {/* Shipping Manager Modal */}
       {shippingModal && (
         <div className="modal-overlay shipping-modal-overlay" onClick={closeShippingManager}>
@@ -476,7 +402,7 @@ function App() {
               <button className="modal-close" onClick={closeShippingManager}>×</button>
             </div>
             <div className="modal-body">
-              <ShippingManager 
+              <ShippingManager
                 shipment={shippingModal.shipment}
                 orderId={shippingModal.orderId}
                 customerInfo={shippingModal.customerInfo}
@@ -487,8 +413,7 @@ function App() {
           </div>
         </div>
       )}
-      
-      {/* CSS for spinner animation */}
+
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
