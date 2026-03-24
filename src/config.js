@@ -1,6 +1,6 @@
 /**
  * App.jsx - Main Application
- * v5.10.0 - No login required, X-Admin-Token header fix
+ * v5.10.0 - No login requiredx2, X-Admin-Token header fix
  */
 
 import { useState, useEffect } from 'react'
